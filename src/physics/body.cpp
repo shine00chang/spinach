@@ -6,13 +6,19 @@
 
 Body::Body(double x, double y, std::vector<Vec2> points, double mass) : 
      mass(mass), 
-     invMass(1 / mass),
      points(points), 
      pos(x, y)
 {    
     // Must be a polygon
     if (points.size() == 3) throw "Not a polygon";
-    invMass = 1 / mass;
+
+    // if mass = 0, will do infinite mass
+    if (mass == 0) {
+        mass = 0;
+        invMass = 0;
+    } else {
+        invMass = 1 / mass;
+    }
 
     // Inertia 
     double r = 0;
@@ -20,8 +26,12 @@ Body::Body(double x, double y, std::vector<Vec2> points, double mass) :
         r += p.mag();
     r /= points.size();
 
-    inertia = mass * r * r / 2;
-    invInertia = 1.0 / inertia;
+    inertia = mass * r * r * 0.5;
+    if (mass == 0) {
+        invInertia = 0;
+    } else { 
+        invInertia = 1.0 / inertia;
+    }
 };
 
 
@@ -37,10 +47,16 @@ void Body::accumulateForces(const double dt) {
     angVelo += angAccl * dt;
 }
 
+void Body::impulse(const Vec2 j, const Vec2 r) {
+    velo = velo + (j * invMass);
+    angVelo += invInertia * (Vec2(-r.y, r.x) * j);
+}
 
 // Integration
+/* Integrates acceleration and velocity, and clears acceleration */
 void Body::update(const double dt) {
 
+    std::cout << "velocity, angvelocity: " << velo << ", " << angVelo << std::endl;
     pos = pos + velo * dt;
     orient += angVelo * dt;
 

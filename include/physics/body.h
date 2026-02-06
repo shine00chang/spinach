@@ -81,10 +81,7 @@ public:
 
     // Mutation
     // Apply impulse J at relative point R
-    inline void impulse (Vec2 j, Vec2 r) {
-        velo = velo + (j * invMass);
-        angVelo += invInertia * (Vec2(-r.y, r.x) * j);
-    }
+    void impulse(const Vec2 j, const Vec2 r);
 
     // Convenience factories
     static std::shared_ptr<Body> makeRect(double x, double y, double w, double h, double m);

@@ -10,8 +10,8 @@ set(PROJECT_NAME physics)
 
 project(${PROJECT_NAME})
 
-
 add_subdirectory(src/physics)
 add_subdirectory(src/dev)
 add_subdirectory(src/angryBirds)
+add_subdirectory(src/unittest)
 

@@ -40,7 +40,7 @@ Environment test1() {
     r1->setOrient(std::atan(0.6));
     r2->setOrient(std::atan(1.5));
 
-    auto floor = Body::makeRect(340, 0, 680, 50, 1e10);
+    auto floor = Body::makeRect(340, 0, 680, 50, 0);
     floor->setGravity(false);
 
     env.addBody(r1);
@@ -101,7 +101,7 @@ Environment fallingDiamond() {
 
     auto r1 = Body::makeRect(340, 300, 50, 50, 10);
     r1->setOrient(std::atan(0.8));
-    auto floor = Body::makeRect(340, 0, 680, 50, 1e10);
+    auto floor = Body::makeRect(340, 0, 680, 50, 0);
     floor->setGravity(false);
 
     env.addBody(r1);
@@ -120,7 +120,7 @@ Environment stacking() {
     auto r2 = Body::makeRect(340, 200, 50, 50, 10);
     auto r3 = Body::makeRect(340, 100, 50, 50, 10);
 
-    auto floor = Body::makeRect(340, 0, 680, 50, 1e10);
+    auto floor = Body::makeRect(340, 0, 680, 50, 0);
     floor->setGravity(false);
 
     env.addBody(r1);
@@ -153,7 +153,7 @@ Environment rainyDay () {
 
     auto r1 = Body::makeRect(340, 300, 50, 50, 10);
     r1->setOrient(std::atan(0.8));
-    auto floor = Body::makeRect(340, 50, 500, 50, 1e10);
+    auto floor = Body::makeRect(340, 50, 500, 50, 0);
     floor->setGravity(false);
 
     env.addBody(floor);

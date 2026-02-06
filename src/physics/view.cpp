@@ -8,7 +8,6 @@
 #include <memory>
 
 
-
 std::list<std::shared_ptr<Effect>> debugEffectsQueue;
 void injectDebugEffect(std::shared_ptr<Effect> effect) {
     debugEffectsQueue.push_back( effect );
@@ -37,6 +36,7 @@ void View::render(SDL_Renderer* renderer, const Environment& env) {
     // Clear renderer 
     SDL_SetRenderDrawColor( renderer, 255, 255, 255, 255 );
     SDL_RenderClear( renderer );
+
 
     // Render each body as polygon 
     for (const auto& body : env.getBodies()) 

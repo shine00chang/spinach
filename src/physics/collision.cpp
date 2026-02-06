@@ -264,92 +264,14 @@ Vec2 findContactPoints (const Edge& e1, const Edge& e2, const Vec2& separationAx
 }
 
 
-// Resolve a collision between two bodies.
-// -> Impulse resolution
-// https://code.tutsplus.com/how-to-create-a-custom-2d-physics-engine-friction-scene-and-jump-table--gamedev-7756t
-/*
-void resolve(Body& b1, Body& b2, const Collision& collision, const double dt) {
-
-    const Vec2& n = collision.norm;
-    const Vec2& p = collision.contactPoint;
-
-    // Collision Tangent
-    const Vec2 t = Vec2(-collision.norm.y, collision.norm.x);
-
-    // Calculate Radius
-    const Vec2 r1 = p - b1.getPos();
-    const Vec2 r2 = p - b2.getPos();
-
-    injectDebugEffect(std::make_shared<VectorEffect>(p, n * 20, Red));
-    injectDebugEffect(std::make_shared<VectorEffect>(p, t * 20, Blue));
-    injectDebugEffect(std::make_shared<VectorEffect>(b1.getPos(), r1, Green));
-    injectDebugEffect(std::make_shared<VectorEffect>(b2.getPos(), r2, Green));
-
-
-    //std::cout << "n:\t" << n << "  p:\t" << p << "  r:\t" << r1 << ", " << r2 << std::endl;
-
-    // Find projected relative Velocity
-    const Vec2 vR = b1.velo + Vec2( -r1.y * b1.angVelo, r1.x * b1.angVelo ) -
-                    b2.velo - Vec2( -r2.y * b2.angVelo, r2.x * b2.angVelo );
-
-    const double vRn = vR * n;
-    const double vRt = vR * t;
-
-
-    const double e = 1 + 0.0001;
-
-    double Jn, Jt;
-    {
-        const double b1IntertiaFactor = ((r1 * r1) - (r1*n)*(r1*n)) * b1.invInertia;
-        const double b2IntertiaFactor = ((r2 * r2) - (r2*n)*(r2*n)) * b2.invInertia;
-
-        Jn = e * vRn / ( b1.invMass + b2.invMass + b1IntertiaFactor + b2IntertiaFactor );
-    }
-    {
-        const double b1IntertiaFactor = ((r1 * r1) - (r1*t)*(r1*t)) * b1.invInertia;
-        const double b2IntertiaFactor = ((r2 * r2) - (r2*t)*(r2*t)) * b2.invInertia;
-        const double friction = std::sqrt(b1.friction * b2.friction);
-     
-        Jt = friction * e * vRt / ( b1.invMass + b2.invMass + b1IntertiaFactor + b2IntertiaFactor );
-    }
-     
-    // Apply Impulse
-    // std::cout << Jn << std::endl;
-    const Vec2 impulse = n * Jn;
-
-    b1.velo = b1.velo - impulse * b1.invMass;
-    b2.velo = b2.velo + impulse * b2.invMass;
-
-    b1.angVelo -= b1.invInertia * (Vec2(-r1.y, r1.x) * impulse);
-    b2.angVelo += b2.invInertia * (Vec2(-r2.y, r2.x) * impulse);
-
-
-    // Apply Tangent Impulse
-    const Vec2 impulseT = t * Jt;
-
-    b1.velo = b1.velo - impulseT * b1.invMass;
-    b2.velo = b2.velo + impulseT * b2.invMass;
-
-    b1.angVelo -= b1.invInertia * (Vec2(-r1.y, r1.x) * impulseT);
-    b2.angVelo += b2.invInertia * (Vec2(-r2.y, r2.x) * impulseT);
-
-
-    // (Sink Prevention) Positional Correction, Linear Projection
-    const double percent = 0.2;     // usually 20% to 80% 
-    const double slop    = 0.01;    // usually 0.01 to 0.1 
-    double correction = percent * std::max( collision.depth - slop, (double) 0 ) / (b1.invMass + b2.invMass);
-    Vec2 correctionV = collision.norm * correction;
-
-    b1.pos = b1.pos - correctionV * b1.invMass;
-    b2.pos = b2.pos + correctionV * b2.invMass;
-}
-*/
-
-
 void ContactConstraint::resolve (const double dt) {
     // http://www.mft-spirit.nl/files/articles/ImpulseSolverBrief.pdf
     // https://raphaelpriatama.medium.com/sequential-impulses-explained-from-the-perspective-of-a-game-physics-beginner-72a37f6fea05
-    //
+    // (Pa - Pb) * n = 0
+    // n * d/dt (Pa - Pb) + (Pa - Pb) * dn/dt = 0
+    // n * (Vrel) = 0
+    // n * (va + wa x ra - vb - wb x rb) = 0  
+    // (n  n x ra  -n  -n x rb) * (Va - Vb + dV)
     // lamb = J V + B / J M-1 J^t dt
     // P = J^t lamb
 
@@ -362,19 +284,22 @@ void ContactConstraint::resolve (const double dt) {
     Vec3 r1 = Vec3(p - b1.getPos());
     Vec3 r2 = Vec3(p - b2.getPos());
 
-    Vec12 J = Vec12(-n, -r1^n, n, r2^n);
+    Vec12 J = Vec12(-n, -n^r1, n, n^r2);
     Vec12 V = Vec12(Vec3(b1.getVelo()), Vec3(0, 0, b1.getAngVelo()), Vec3(b2.getVelo()), Vec3(0, 0, b2.getAngVelo()));
     Vec12 MinvJt = Vec12(
             -n * b1.getInvMass(),
-            -r1^n * b1.getInvInertia(),
+            -n^r1 * b1.getInvInertia(),
             n * b2.getInvMass(),
-            r2^n * b2.getInvInertia());
+            n^r2 * b2.getInvInertia());
     double b = 0;
 
     double lambda;
     {
+        //double num = -n*b1.getVelo() -n*(Vec2(-r1.y, r2.x) * b1.getAngVelo()) + n*b2.getVelo() +n*(Vec2(-r2.y, r2.x) * b2.getAngVelo());
         double num = J * V;
         double den = dt * (J * MinvJt);
+
+        std::cout << num << '\t' << den << std::endl;
 
         lambda = - num / den;
     }
@@ -394,6 +319,8 @@ void ContactConstraint::resolve (const double dt) {
     b1.impulse(-impulse, Vec2(r1.x, r1.y));
     b2.impulse( impulse, Vec2(r2.x, r2.y));
 
+    std::cout << "impulse mag: " << impulse.mag() << std::endl;
+
     /*
     // (Sink Prevention) Positional Correction, Linear Projection
     const double percent = 0.2;     // usually 20% to 80% 
@@ -407,12 +334,22 @@ void ContactConstraint::resolve (const double dt) {
 }
 
 bool ContactConstraint::converged(const int iteration) {
+
+    if (iteration >= 4) 
+        return true;
+
     // C: contact points touching
-    Vec2 p = this->point - this->norm * this->depth;
-    injectDebugEffect(std::make_shared<PointEffect>(p, Red)); 
-    injectDebugEffect(std::make_shared<PointEffect>(this->point, Green));
-    injectDebugEffect(std::make_shared<VectorEffect>(this->point, this->norm * 30, Red));
-    return true;
+    Vec2 pa = this->point;
+    Vec2 pb = this->point - this->norm * this->depth;
+    injectDebugEffect(std::make_shared<PointEffect>(pb, Red)); 
+    injectDebugEffect(std::make_shared<PointEffect>(pa, Green));
+    injectDebugEffect(std::make_shared<VectorEffect>(pa, this->norm * 30, Red));
+
+    Vec2 del = pa - pb;
+
+    std::cout << "del mag: " << del.mag() << std::endl;
+
+    return del.mag() < 1;
 }
         
 // Checks for collisions and resolves accordingly.
@@ -446,6 +383,10 @@ void Environment::collide(const double dt) {
         for (auto& constraint: constraints) {
             // Resolve collision
             constraint->resolve(dt);
+
+            // Update impulses
+            constraint->b1->update(dt);
+            constraint->b2->update(dt);
 
             // Remove if converged
             if (!constraint->converged(iteration)) {

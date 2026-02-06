@@ -20,17 +20,18 @@ Application::Application () {
     //Create window
     m_window = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
     if( m_window == NULL ) 
+
         throw "Window could not be created! SDL_Error: %s\n"; // SDL_GetError();
-   
+                                                              //
     // Setup renderer 
     m_renderer = SDL_CreateRenderer( m_window, -1, SDL_RENDERER_ACCELERATED);
 }
 
 Application::~Application () {
-    //Destroy window
+    // Destroy window
 	SDL_DestroyWindow( m_window );
 
-	//Quit SDL subsystems
+    //Quit SDL subsystems
 	SDL_Quit();
 }
 
@@ -120,14 +121,14 @@ void Application::loop (View view, Environment env)
             body->accumulateForces(dt);
         }
 
-        // Collision
-        env.collide(dt);
-
         // Update
         for (auto& body : env.getBodiesMut()) 
         {
             body->update(dt);
         }
+
+        // Collision & Correction
+        env.collide(dt);
 
         // Render
         view.render(m_renderer, env);
