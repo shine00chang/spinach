@@ -1,6 +1,6 @@
 #include "core.h"
 #include "environment.h"
-#include "collision.h"
+#include "constraint.h"
 #include "app.h"
 #include "view.h"
 
@@ -11,7 +11,16 @@
 #include <list>
 #include <optional>
 #include <memory>
+#include <ranges>
 
+
+struct Edge {
+    Vec2 e;
+    Vec2 n;
+    Vec2 v1;
+    Vec2 v2;
+    Edge (const Vec2& v1, const Vec2& v2) : e((v1-v2).normalize()), n(Vec2(e.y, -e.x).normalize()), v1(v1), v2(v2) {};
+};
 
 // Boardphase
 std::vector<std::shared_ptr<Body>>& boardphase(Environment& env) {
@@ -41,27 +50,46 @@ Vec2 orthogonalTowards(const Vec2& _v1, const Vec2& _v2) {
 
 
 
-std::pair<double, double> getMinMax(const Body& body, const Vec2& axis) {
+std::tuple<double, Vec2, double, Vec2> getMinMax(const Body& body, const Vec2& axis) {
     if (!axis.isNorm()) {
         std::cout << axis << std::endl;
         assert(false);
     }
 
     auto min = std::nan("0");
+    auto minv = Vec2(0,0);
     auto max = std::nan("0");
+    auto maxv = Vec2(0,0);
 
     for (const Vec2& p : body.getPointsGlobal())
     {
         double v = p * axis;
 
-        if (std::isnan(min) || v < min) min = v;
-        if (std::isnan(max) || v > max) max = v;
+        if (std::isnan(min) || v < min) { min = v; minv = p; }
+        if (std::isnan(max) || v > max) { max = v; maxv = p; }
     }
-    return std::make_pair(min, max);
+    return std::make_tuple(min, minv, max, maxv);
+}
+
+std::pair<Edge, Edge> getBodyEdgesWithPoint (const Body& b, const Vec2& p) {
+    const auto& v = b.getPointsGlobal();
+
+    int out = 0;
+    for (int i=0; i<v.size(); i++) {
+        if ((v[i] - p).mag() < (p - v[out]).mag()) {
+            out = i;
+        }
+    }
+    Vec2 v1 = v[out];
+    Edge e1 (v1, v[out == 0 ? v.size()-1 : out-1]);
+    Edge e2 (v1, v[out == v.size()-1 ? 0 : out+1]);
+
+    return std::make_pair(e1, e2);
 }
 
 
-std::optional<std::pair<double, Vec2>> detectCollisionSAT(const Body& b1, const Body& b2) {
+Vec2 findContactPoints (const Edge& e1, const Edge& e2, const Vec2& separationAxis);
+std::optional<std::tuple<double, Vec2, Vec2>> detectCollisionSAT(const Body& b1, const Body& b2) {
 
     // Find normals
     std::vector<Vec2> norms;
@@ -82,12 +110,15 @@ std::optional<std::pair<double, Vec2>> detectCollisionSAT(const Body& b1, const 
 
     double overlap = std::nan("0");
     Vec2 separationNorm(norms[0]);
+    Vec2 va = Vec2(0,0);
+    Vec2 vb = Vec2(0,0);
+    
     // For each normal
     for (const Vec2& axis: norms)
     {
         // Get min & max projection
-        auto [min1, max1] = getMinMax(b1, axis);
-        auto [min2, max2] = getMinMax(b2, axis);
+        auto [min1, minv1, max1, maxv1] = getMinMax(b1, axis);
+        auto [min2, minv2, max2, maxv2] = getMinMax(b2, axis);
 
         // If no overlap
         if (max1 < min2 || max2 < min1) 
@@ -97,45 +128,35 @@ std::optional<std::pair<double, Vec2>> detectCollisionSAT(const Body& b1, const 
         else 
         // Check overlap to find MTV
         {
-            double o = max1-min2;
-            if (std::isnan(overlap) ||  o < overlap) {
-                overlap = o;
+            if (std::isnan(overlap) ||  abs(min1-max2) < abs(overlap)) {
+                overlap = min1-max2;
                 separationNorm = axis;
+                va = minv1;
+                vb = maxv2;
+            }
+            if (abs(min2-max1) < abs(overlap)) {
+                overlap = min2-max1;
+                separationNorm = axis;
+                va = maxv1;
+                vb = minv2;
             }
         }
     }
+    
+    auto f = [&](const Body& body, Vec2 vertex){
+        auto [a, b] = getBodyEdgesWithPoint(body, vertex);
+        return abs(a.n * separationNorm) > abs(b.n * separationNorm) ? a : b;
+    };
 
-    return std::make_optional(std::make_pair(overlap, separationNorm));
-}
+    auto e1 = f(b1, va);
+    auto e2 = f(b2, vb);
 
+    auto contactP = findContactPoints(e1, e2, separationNorm);
 
-struct Edge {
-    Vec2 e;
-    Vec2 n;
-    Vec2 v1;
-    Vec2 v2;
-    Edge (const Vec2& v1, const Vec2& v2) : e((v1-v2).normalize()), n(Vec2(e.y, -e.x).normalize()), v1(v1), v2(v2) {};
-};
+    //injectDebugEffect(std::make_shared<PointEffect>(va, Red));
+    //injectDebugEffect(std::make_shared<PointEffect>(vb, Red));
 
-
-
-Edge findClippingEdge (const Body& b, const Vec2& norm) {
-    const auto& p = b.getPointsGlobal();
-
-    int out = 0;
-    int best = 0;
-    for (int i=0; i<p.size(); i++) 
-        if (norm * p[i] > best) {
-            best = norm * p[i];
-            out = i;
-        }
-    Vec2 v1 = p[out];
-    Edge e1 (v1, p[out ? out-1 : p.size()-1]);
-    Edge e2 (v1, p[out == p.size()-1 ? 0 : out+1]);
-    if (std::abs(e1.n * norm) > std::abs(e2.n * norm)) 
-        return e1;
-    else 
-        return e2;
+    return std::make_optional(std::make_tuple(overlap, separationNorm, contactP));
 }
 
 
@@ -147,8 +168,6 @@ int clip (Vec2 out[2], Vec2 a, Vec2 b, double o, Vec2 norm) {
     // DEBUG
     // std::cout << "clipping seg\t" << a << ":" << da << ", " << b << ":" << db << "\tagainst plane " << o << "\t" << norm << std::endl;
     
-
-
     // Past clipping plane
     if (da >= 0) {
         out[i++] = a;
@@ -188,16 +207,13 @@ int clip (Vec2 out[2], Vec2 a, Vec2 b, double o, Vec2 norm) {
 }
 
 
-Vec2 findContactPoints (const Body& b1, const Body& b2, const Vec2& separationAxis) {
+Vec2 findContactPoints (const Edge& e1, const Edge& e2, const Vec2& separationAxis) {
 
     // Get Edges
-    const Edge e1 = findClippingEdge(b1, separationAxis);
-    const Edge e2 = findClippingEdge(b2,-separationAxis);
-
-    injectDebugEffect(std::make_shared<PointEffect>(e1.v1, Blue));
-    injectDebugEffect(std::make_shared<PointEffect>(e1.v2, Blue));
-    injectDebugEffect(std::make_shared<PointEffect>(e2.v1, Blue));
-    injectDebugEffect(std::make_shared<PointEffect>(e2.v2, Blue));
+    /*injectDebugEffect(std::make_shared<PointEffect>(e1.v1, Blue));*/
+    /*injectDebugEffect(std::make_shared<PointEffect>(e1.v2, Blue));*/
+    /*injectDebugEffect(std::make_shared<PointEffect>(e2.v1, Blue));*/
+    /*injectDebugEffect(std::make_shared<PointEffect>(e2.v2, Blue));*/
 
     // Identify Reference & Incident Edge 
     Edge ref = e2;
@@ -243,7 +259,6 @@ Vec2 findContactPoints (const Body& b1, const Body& b2, const Vec2& separationAx
     {
         p = inc[0];
     }
-    injectDebugEffect(std::make_shared<PointEffect>(p, Green));
 
     return p; 
 }
@@ -251,7 +266,9 @@ Vec2 findContactPoints (const Body& b1, const Body& b2, const Vec2& separationAx
 
 // Resolve a collision between two bodies.
 // -> Impulse resolution
-void Body::resolve(Body& b1, Body& b2, const Collision& collision, const double dt) {
+// https://code.tutsplus.com/how-to-create-a-custom-2d-physics-engine-friction-scene-and-jump-table--gamedev-7756t
+/*
+void resolve(Body& b1, Body& b2, const Collision& collision, const double dt) {
 
     const Vec2& n = collision.norm;
     const Vec2& p = collision.contactPoint;
@@ -297,6 +314,7 @@ void Body::resolve(Body& b1, Body& b2, const Collision& collision, const double 
     }
      
     // Apply Impulse
+    // std::cout << Jn << std::endl;
     const Vec2 impulse = n * Jn;
 
     b1.velo = b1.velo - impulse * b1.invMass;
@@ -325,8 +343,78 @@ void Body::resolve(Body& b1, Body& b2, const Collision& collision, const double 
     b1.pos = b1.pos - correctionV * b1.invMass;
     b2.pos = b2.pos + correctionV * b2.invMass;
 }
+*/
 
 
+void ContactConstraint::resolve (const double dt) {
+    // http://www.mft-spirit.nl/files/articles/ImpulseSolverBrief.pdf
+    // https://raphaelpriatama.medium.com/sequential-impulses-explained-from-the-perspective-of-a-game-physics-beginner-72a37f6fea05
+    //
+    // lamb = J V + B / J M-1 J^t dt
+    // P = J^t lamb
+
+    Body& b1 = *this->b1;
+    Body& b2 = *this->b2;
+    Vec3 n = Vec3(this->norm);
+    Vec2 p = this->point;
+
+    // Calculate Radius
+    Vec3 r1 = Vec3(p - b1.getPos());
+    Vec3 r2 = Vec3(p - b2.getPos());
+
+    Vec12 J = Vec12(-n, -r1^n, n, r2^n);
+    Vec12 V = Vec12(Vec3(b1.getVelo()), Vec3(0, 0, b1.getAngVelo()), Vec3(b2.getVelo()), Vec3(0, 0, b2.getAngVelo()));
+    Vec12 MinvJt = Vec12(
+            -n * b1.getInvMass(),
+            -r1^n * b1.getInvInertia(),
+            n * b2.getInvMass(),
+            r2^n * b2.getInvInertia());
+    double b = 0;
+
+    double lambda;
+    {
+        double num = J * V;
+        double den = dt * (J * MinvJt);
+
+        lambda = - num / den;
+    }
+
+    // std::cout << lambda * dt << std::endl;
+
+    // Apply Impulse
+    const Vec2 impulseN = this->norm * dt * lambda;
+
+    const Vec2 tan = Vec2(this->norm.y, this->norm.x);
+    const Vec2 vrel = b1.getVelo() + Vec2( -r1.y, r1.x) * b1.getAngVelo() -
+                      b2.getVelo() - Vec2( -r2.y, r2.x) * b2.getAngVelo();
+    const double mu = sqrt(b1.getFriction() * b2.getFriction());
+    const Vec2 impulseT = tan * (tan * vrel * mu);
+
+    const Vec2 impulse = impulseN ;//+ impulseT;
+    b1.impulse(-impulse, Vec2(r1.x, r1.y));
+    b2.impulse( impulse, Vec2(r2.x, r2.y));
+
+    /*
+    // (Sink Prevention) Positional Correction, Linear Projection
+    const double percent = 0.2;     // usually 20% to 80% 
+    const double slop    = 0.01;    // usually 0.01 to 0.1 
+    double correction = percent * std::max( this->depth - slop, (double) 0 ) / (b1.getInvMass() + b2.getInvMass());
+    Vec2 correctionV = this->norm * correction;
+
+    b1.setPos(b1.getPos() - correctionV * b1.getInvMass());
+    b2.setPos(b2.getPos() + correctionV * b2.getInvMass());
+    */
+}
+
+bool ContactConstraint::converged(const int iteration) {
+    // C: contact points touching
+    Vec2 p = this->point - this->norm * this->depth;
+    injectDebugEffect(std::make_shared<PointEffect>(p, Red)); 
+    injectDebugEffect(std::make_shared<PointEffect>(this->point, Green));
+    injectDebugEffect(std::make_shared<VectorEffect>(this->point, this->norm * 30, Red));
+    return true;
+}
+        
 // Checks for collisions and resolves accordingly.
 void Environment::collide(const double dt) {
         
@@ -334,6 +422,7 @@ void Environment::collide(const double dt) {
     auto& bodyList = boardphase(*this);
 
     // Find collisions
+    std::list<std::shared_ptr<Constraint>> constraints;
     for (int i=0; i<bodyList.size(); i++) 
     {
         for (int j=i+1; j<bodyList.size(); j++) 
@@ -341,14 +430,32 @@ void Environment::collide(const double dt) {
             // Check for collision
             auto opt = detectCollisionSAT(*bodyList[i], *bodyList[j]);
             if (!opt) continue;
-            auto [overlap, separationAxis] = *opt;
-            auto contactP = findContactPoints(*bodyList[i], *bodyList[j], separationAxis);
-            Collision collision (separationAxis, overlap, contactP);
+            auto [overlap, separationAxis, contactP] = *opt;
+            std::shared_ptr<Constraint> contact = 
+                std::make_shared<ContactConstraint>(overlap, separationAxis, contactP, bodyList[i], bodyList[j]);
+            constraints.push_back(contact);
 
-            // Resolve collision
-            Body::resolve(*bodyList[i], *bodyList[j], collision, dt);
         }
     }
+
+    // sequential impulse
+    int iteration = 0;
+    while (!constraints.empty()) 
+    {
+        std::list<std::shared_ptr<Constraint>> nconstraints;
+        for (auto& constraint: constraints) {
+            // Resolve collision
+            constraint->resolve(dt);
+
+            // Remove if converged
+            if (!constraint->converged(iteration)) {
+                nconstraints.push_back(constraint);
+            }
+        }
+
+        constraints = std::move(nconstraints);
+        iteration++;
+    }
+    if (iteration)
+        std::cout << "iterations: " << iteration << std::endl;
 }
-
-

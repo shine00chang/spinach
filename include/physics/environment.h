@@ -24,7 +24,7 @@ public:
     ~Environment() {};
 
     void collide (const double dt);
-    void runControllers (const Application& app, View& view);
+    void runControllers (Application& app, View& view);
 
     void addBody       (const std::shared_ptr<Body> body) { m_bodies.push_back(body); } 
     void addController (const EnvController controller) { m_controllers.push_back(controller); }

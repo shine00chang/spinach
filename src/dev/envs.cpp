@@ -1,5 +1,6 @@
 #include "environment.h"
 #include "app.h"
+#include <SDL_keycode.h>
 
 /*
  * Debug / Test purposes. 
@@ -110,20 +111,41 @@ Environment fallingDiamond() {
 }
 
 
+/* Stacking
+ */ 
+Environment stacking() {
+    Environment env;
+
+    auto r1 = Body::makeRect(340, 300, 50, 50, 10);
+    auto r2 = Body::makeRect(340, 200, 50, 50, 10);
+    auto r3 = Body::makeRect(340, 100, 50, 50, 10);
+
+    auto floor = Body::makeRect(340, 0, 680, 50, 1e10);
+    floor->setGravity(false);
+
+    env.addBody(r1);
+    env.addBody(r2);
+    env.addBody(r3);
+    env.addBody(floor);
+
+    return env;
+}
+
 /* Gravity & Floor. 
  * Creates random falling block when space bar is pressed
  */
 void rainyController (Environment* env, const Application& app, View& view) {
-    if (app.mouseClicked()) {
-        double x = app.mouse().x;
-        double y = app.mouse().y;
-        double s = std::rand() % 50 + 20;
-        double ang = std::asin(std::rand() % 1000 / 1000.0);
+    if (!app.isPressed(SDLK_SPACE))
+        return;
 
-        auto b = Body::makeRect(x, y, s, s, 10);
-        b->setOrient(ang);
-        env->addBody(b);
-    }
+    double x = app.mouse().x;
+    double y = app.mouse().y;
+    double s = 60; //std::rand() % 50 + 20;
+    double ang = std::asin(std::rand() % 1000 / 1000.0);
+
+    auto b = Body::makeRect(x, y, s, s, 10);
+    b->setOrient(ang);
+    env->addBody(b);
 }
 
 Environment rainyDay () {
@@ -131,7 +153,7 @@ Environment rainyDay () {
 
     auto r1 = Body::makeRect(340, 300, 50, 50, 10);
     r1->setOrient(std::atan(0.8));
-    auto floor = Body::makeRect(340, 0, 680, 50, 1e10);
+    auto floor = Body::makeRect(340, 50, 500, 50, 1e10);
     floor->setGravity(false);
 
     env.addBody(floor);
@@ -139,7 +161,6 @@ Environment rainyDay () {
 
     return env;
 }
-
 
 void setEnvs () {
     DefaultEnv = "rainyDay";
@@ -149,5 +170,6 @@ void setEnvs () {
         {"test3", test3()},
         {"fallingDiamond", fallingDiamond()},
         {"rainyDay", rainyDay()},
+        {"stacking", stacking()},
     };
 }

@@ -73,6 +73,8 @@ void Application::updateEvents() {
 }
 
 
+bool paused = true;
+int frame_number = 0;
 
 void Application::loop (View view, Environment env) 
 {
@@ -81,13 +83,26 @@ void Application::loop (View view, Environment env)
 
     while (isRunning()) 
     {
+        // Get Dt
+        const uint64_t ms = SDL_GetTicks64(); 
+        // Throttle to DT between frames
+        if (ms - prevIterMs < dt * 1000) continue;
+        prevIterMs = ms;
+
         // Check quit event
         updateEvents();
 
-        // Get Dt
-        const uint64_t ms = SDL_GetTicks64(); 
-        if (ms - prevIterMs < dt * 1000) continue;
-        prevIterMs = ms;
+        // Pause toggle
+        if (isPressed(SDLK_p)) paused = !paused;
+
+        // If paused and next frame not pressed, skip.
+        if (paused && !isPressed(SDLK_RIGHT)) {
+            //view.render(m_renderer, env);
+            continue;
+        }
+
+        // Frame counter
+        frame_number ++;
 
         // Movement
         env.runControllers(*this, view);

@@ -30,8 +30,8 @@ class Application {
     bool m_mouseClick = false;
     MousePos m_mouse{0, 0};
 
-
     bool m_running = true;
+    bool m_paused = false;
 
     void loop (View view, Environment env);
     void updateEvents ();
@@ -46,9 +46,12 @@ public:
     bool mouseClicked () const { return m_mouseClick; }
     MousePos mouse    () const { return m_mouse; }
 
-    bool isPressed (SDL_Keycode k) const { return m_keys.count(k); }
-    bool isHeld    (SDL_Keycode k) const { return m_keysHeld.count(k); }
-    bool isRunning () const { return m_running; }
+    inline bool isPressed (SDL_Keycode k) const { return m_keys.count(k); }
+    inline bool isHeld    (SDL_Keycode k) const { return m_keysHeld.count(k); }
+    inline bool isRunning () const { return m_running; }
+    inline bool isPaused () { return m_paused; }
+    inline void pause () { m_paused = true; }
+    inline void resume () { m_paused = false; }
 };
 
 #endif

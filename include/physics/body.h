@@ -2,7 +2,7 @@
 #define __BODY_h__
 
 #include "SDL.h"
-#include "collision.h"
+#include "constraint.h"
 #include "core.h"
 #include "controller.h"
 
@@ -47,11 +47,15 @@ public:
     void update (const double dt);
 
     // Getters
-    double getMass  () const { return mass; }
-    bool getGravity () const { return gravity; }
-    Vec2 getPos     () const { return pos; }
-    Vec2 getVelo    () const { return velo; }
-    double getAngAccl () const { return angAccl; }
+    inline double getFriction () const { return friction; }
+    inline double getMass  () const { return mass; }
+    inline double getInvMass  () const { return invMass; }
+    inline double getInvInertia  () const { return invInertia; }
+    inline bool getGravity () const { return gravity; }
+    inline Vec2 getPos     () const { return pos; }
+    inline Vec2 getVelo    () const { return velo; }
+    inline double getAngVelo () const { return angAccl; }
+    inline double getAngAccl () const { return angAccl; }
 
     // Point getters, has transformation logic 
     const std::vector<Vec2>& getPointsRaw  () const { return points; }
@@ -69,18 +73,21 @@ public:
     }
     
     // Setter
-    void setGravity (bool b)        { gravity = b; }
-    void setPos     (const Vec2& v) { pos = v; }
-    void setVelo    (const Vec2& v) { velo = v; } 
-    void setAngAccl (double a)      { angAccl = a; }
-    void setOrient  (double o)      { orient = o; }
+    inline void setGravity (bool b)        { gravity = b; }
+    inline void setPos     (const Vec2& v) { pos = v; }
+    inline void setVelo    (const Vec2& v) { velo = v; } 
+    inline void setAngAccl (double a)      { angAccl = a; }
+    inline void setOrient  (double o)      { orient = o; }
 
-    // Collision Resolver 
-    static void resolve(Body& b1, Body& b2, const Collision& collision, const double dt); 
+    // Mutation
+    // Apply impulse J at relative point R
+    inline void impulse (Vec2 j, Vec2 r) {
+        velo = velo + (j * invMass);
+        angVelo += invInertia * (Vec2(-r.y, r.x) * j);
+    }
 
     // Convenience factories
     static std::shared_ptr<Body> makeRect(double x, double y, double w, double h, double m);
     static std::shared_ptr<Body> makeDiamond(double x, double y, double r, double m);
 };
-
 #endif
