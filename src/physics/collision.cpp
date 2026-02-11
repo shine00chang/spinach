@@ -87,9 +87,25 @@ std::pair<Edge, Edge> getBodyEdgesWithPoint (const Body& b, const Vec2& p) {
 }
 
 
-std::list<std::pair<Vec2, Vec2>> findContactPoints (const Edge& e, const Body& b);
-std::optional<std::shared_ptr<ContactConstraint>> detectCollisionSAT(const Body* b1, const Body* b2) {
+// e: contact edge where normal is pointed outwards, b: penetrating body
+// returns: list of (edge point, penetrating point)
+// Finds all points of B behind edge E.
+// Accomplished by taking the projection of the difference between the point and a point on the edge.
+std::list<std::pair<Vec2, Vec2>> findContactPoints (const Edge& e, const Body& b) {
 
+    std::list<std::pair<Vec2, Vec2>> out;
+    for (auto& p : b.getPointsGlobal()) {
+        if ((p-e.v1) * e.n > 0) continue; 
+
+        Vec2 p_edge = p - e.n * ((p-e.v1) * e.n);
+        out.push_back(std::make_pair(p_edge, p));
+    }
+    return out;
+}
+
+std::optional<std::list<std::shared_ptr<Constraint>>> detectCollisionSAT(const Body* b1, const Body* b2) {
+
+    // all data used to create contact constraint
     double overlap = std::nan("0");
     Edge contact_edge (Vec2(0,0), Vec2(0,0));
     std::list<std::pair<Vec2, Vec2>> contacts;
@@ -98,6 +114,7 @@ std::optional<std::shared_ptr<ContactConstraint>> detectCollisionSAT(const Body*
 
     auto check = [&](const Body* b1, const Body* b2) -> bool 
     {
+        // Construct edges where normals are pointed outwards.
         std::vector<Edge> edges;
         const auto& v = b1->getPointsGlobal();
         for (int i=0; i<v.size(); i++) {
@@ -107,47 +124,48 @@ std::optional<std::shared_ptr<ContactConstraint>> detectCollisionSAT(const Body*
             if ((v[i]-b1->getPos()) * e.n < 0) e.n = -e.n;
 
             edges.push_back(e);
-            injectDebugEffect(std::make_shared<VectorEffect>(v[i], e.n * 30, Red));
         }
         
         bool changed = false;
-        // For each normal
+        // For each edge, determine overlap. Find and store minimum overlap.
         for (const Edge& edge: edges)
         {
-            // Get min & max projection
             auto [min1, minv1, max1, maxv1] = getMinMax(*b1, edge.n);
             auto [min2, minv2, max2, maxv2] = getMinMax(*b2, edge.n);
 
-            if (max1 - (edge.v1 * edge.n) > 0.01)
+            // If the furthest point on body1 along this normal is not one of the points on this edge.
+            // This should only happen when 1) the shape is concave or 2) the normal is not outwards.
+            if (max1 - (edge.v1 * edge.n) > 0.01) {
+                // TODO: Add debug dump
+                std::cout << "furthest point on body1 along this normal is not one of the points on this edge." << std::endl;
+                assert(false);
                 continue;
+            }
 
-            // If no overlap
+            // If no overlap, there is no collision.
             if (max1 < min2 || max2 < min1) 
             {
                 std::cout << "exiting\n";
                 return false;
             }
-            else 
-            // Check overlap to find MTV
+            // Find minimum overlap write. store edge as contact edge.
+            // Technically removing the abs should be fine...?
+            if (std::isnan(overlap) ||  
+               abs(max1-min2) < abs(overlap)) 
             {
-                // Technically removing the abs should be fine...?
-                if (std::isnan(overlap) ||  
-                   abs(max1-min2) < abs(overlap)) 
-                {
-                    overlap = max1-min2;
-                    std::cout << overlap << std::endl;
-                    contact_edge = edge;
-                    changed = true;
-                }
+                overlap = max1-min2;
+                std::cout << overlap << std::endl;
+                contact_edge = edge;
+                changed = true;
             }
         }
 
+        // If minum has changed, find and store contact points and body order
         if (changed) 
         {
             contacts = findContactPoints(contact_edge, *b2);
             b_edge = b1;
             b_penetrating = b2;
-
         }
         return true;
     };
@@ -155,18 +173,20 @@ std::optional<std::shared_ptr<ContactConstraint>> detectCollisionSAT(const Body*
     if (!check(b1, b2)) return std::nullopt;
     if (!check(b2, b1)) return std::nullopt;
 
-    // TODO: probably add a dump so it is reproducable
+    // TODO: Add debug dump
     if (overlap < 0) {
         std::cout << "negative overlap.. weird: " << overlap << std::endl;   
     }
 
-    injectDebugEffect(std::make_shared<VectorEffect>(contact_edge.v1, contact_edge.n * 30, Green));
-        
-    // TODO: make on constraint out of every contact
-    std::list<std::shared_ptr<ContactConstraint>> constraints;
+    // Make constraint out of every contact
+    std::list<std::shared_ptr<Constraint>> constraints;
     for (auto& [p_edge, p_penetrating] : contacts) {
-        constraints.push_back(
-                std::make_shared<ContactConstraint>(contact_edge.n, p_edge, p_penetrating, std::make_shared<Body>(*b_edge), std::make_shared<Body>(*b_penetrating)));
+        constraints.push_back(std::make_shared<ContactConstraint>(
+            contact_edge.n,
+            p_edge,
+            p_penetrating,
+            std::make_shared<Body>(*b_edge),
+            std::make_shared<Body>(*b_penetrating)));
 
         injectDebugEffect(std::make_shared<PointEffect>(p_edge, Red)); 
         injectDebugEffect(std::make_shared<PointEffect>(p_penetrating, Blue));
@@ -174,68 +194,8 @@ std::optional<std::shared_ptr<ContactConstraint>> detectCollisionSAT(const Body*
     }
     std::cout << "contacts found: " << contacts.size() << std::endl;
 
-    //return std::make_optional(contact);
-    return std::nullopt;
+    return std::make_optional(constraints);
 }
-
-
-int clip (Vec2 out[2], Vec2 a, Vec2 b, double o, Vec2 norm) {
-    double da = a * norm - o;
-    double db = b * norm - o;
-    int i = 0;
-
-    // DEBUG
-    // std::cout << "clipping seg\t" << a << ":" << da << ", " << b << ":" << db << "\tagainst plane " << o << "\t" << norm << std::endl;
-    
-    // Past clipping plane
-    if (da >= 0) {
-        out[i++] = a;
-        //std::cout << "a past\n";
-    }
-    if (db >= 0) { 
-        out[i++] = b;
-        //std::cout << "b past\n";
-    }
-
-    // Opposing sides of plane
-    if (da * db < 0) 
-    {
-        // std::cout << "opposing sides. ";
-        // assert(i == 1);
-
-        double r = da / (da - db);
-        Vec2 v = (b - a) * r;
-        out[i++] = v + a;
-
-        // std::cout << "interpolated to:\t" << out[i-1] << std::endl;
-    }
-
-    // Both behind
-    else if (da < 0 && db < 0) 
-    {
-        // std::cout << "both behind. ";
-        double r = da / (da - db);
-        Vec2 v = (b - a) * -r;
-        out[i++] = v + a;
-        out[i++] = v + a;
-
-        // std::cout << "interpolated to:\t" << out[i-1] << std::endl;
-    }
-    assert(i == 2);
-    return i;
-}
-
-// for each point in b, see if projection of b - e.v1 onto e.n is negative
-// returns a list of pairs of points - the penetrating point and their corresponding point on the contact edge
-std::list<std::pair<Vec2, Vec2>> findContactPoints (const Edge& e, const Body& b) 
-{
-    std::list<std::pair<Vec2, Vec2>> out;
-
-    // TODO: do this next!
-
-    return out;
-}
-
 
 void ContactConstraint::resolve (const double dt) {
     // http://www.mft-spirit.nl/files/articles/ImpulseSolverBrief.pdf
@@ -307,9 +267,11 @@ bool ContactConstraint::converged(const int iteration) {
         return true;
 
     // C: contact points touching
+    /*
     injectDebugEffect(std::make_shared<PointEffect>(v1, Red)); 
     injectDebugEffect(std::make_shared<PointEffect>(v2, Green));
     injectDebugEffect(std::make_shared<VectorEffect>(v1, this->norm * 30, Red));
+    */
 
     Vec2 del = v1-v2;
 
@@ -333,16 +295,16 @@ void Environment::collide(const double dt) {
             // Check for collision
             auto opt = detectCollisionSAT(bodyList[i].get(), bodyList[j].get());
             if (!opt) continue;
-            std::shared_ptr<Constraint> contact = *opt;
+            auto contacts = *opt;
 
-            constraints.push_back(contact);
-
+            constraints.splice(constraints.end(), contacts);
         }
     }
 
     // sequential impulse
     int iteration = 0;
-    while (!constraints.empty()) 
+    // while (!constraints.empty()) 
+    while (false)
     {
         std::list<std::shared_ptr<Constraint>> nconstraints;
         for (auto& constraint: constraints) {
