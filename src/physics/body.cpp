@@ -54,15 +54,12 @@ void Body::impulse(const Vec2 J, const double L) {
 
     std::cout << "dvelocity, dangvelocity: " << J * invMass << ", " << invInertia * L << std::endl;
     std::cout << "velocity, angvelocity: " << velo << ", " << angVelo << std::endl;
-    std::cout << &*this << std::endl;
 }
 
 // Integration
 /* Integrates acceleration and velocity, and clears acceleration */
 void Body::update(const double dt) {
 
-    std::cout << "velocity, angvelocity: " << velo << ", " << angVelo << std::endl;
-    std::cout << &*this << std::endl;
     pos = pos + velo * dt;
     orient += angVelo * dt;
 

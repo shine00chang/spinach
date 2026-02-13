@@ -50,10 +50,7 @@ Vec2 orthogonalTowards(const Vec2& _v1, const Vec2& _v2) {
 
 
 std::tuple<double, Vec2, double, Vec2> getMinMax(const Body& body, const Vec2& axis) {
-    if (!axis.isNorm()) {
-        std::cout << axis << std::endl;
-        assert(false);
-    }
+    if (!axis.isNorm()) assert(false);
 
     auto min = std::nan("0");
     auto minv = Vec2(0,0);
@@ -318,7 +315,8 @@ void Environment::collide(const double dt) {
     std::map<Body*, std::pair<Vec2, double>> impulses;
     auto accumulateJ = [&](std::shared_ptr<Body> b, Vec2 v, Vec2 impulse) {
         auto [J, L] = impulses[b.get()];
-        impulses[b.get()] = std::make_pair(J + impulse, L + Vec2(-v.y, v.x) * impulse);
+        Vec2 p = v - b->getPos();
+        impulses[b.get()] = std::make_pair(J + impulse, L + Vec2(-p.y, p.x) * impulse);
     };
     int iteration = 0;
 

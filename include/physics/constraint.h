@@ -9,6 +9,8 @@ class Constraint {
 public:
     std::shared_ptr<Body> b1;
     std::shared_ptr<Body> b2;
+
+    // NOTE: points are in absolute
     Vec2 v1;
     Vec2 v2;
 
@@ -23,7 +25,8 @@ public:
 
 class ContactConstraint : public Constraint {
 public:
-
+    // NOTE: by convention, contact edge belongs to b1, that is, norm points away from b1.
+    // b2 is the penetrating body.
     Vec2 norm;
 
     ContactConstraint (const Vec2& norm, const Vec2& v1, const Vec2& v2, std::shared_ptr<Body> b1, std::shared_ptr<Body> b2) :
