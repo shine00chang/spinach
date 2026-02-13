@@ -103,16 +103,16 @@ std::list<std::pair<Vec2, Vec2>> findContactPoints (const Edge& e, const Body& b
     return out;
 }
 
-std::optional<std::list<std::shared_ptr<Constraint>>> detectCollisionSAT(const Body* b1, const Body* b2) {
+std::optional<std::list<std::shared_ptr<Constraint>>> detectCollisionSAT(std::shared_ptr<Body> b1, std::shared_ptr<Body> b2) {
 
     // all data used to create contact constraint
     double overlap = std::nan("0");
     Edge contact_edge (Vec2(0,0), Vec2(0,0));
     std::list<std::pair<Vec2, Vec2>> contacts;
-    const Body* b_edge = b1;
-    const Body* b_penetrating = b2;
+    std::shared_ptr<Body> b_edge = b1;
+    std::shared_ptr<Body> b_penetrating = b2;
 
-    auto check = [&](const Body* b1, const Body* b2) -> bool 
+    auto check = [&](std::shared_ptr<Body> b1, std::shared_ptr<Body> b2) -> bool 
     {
         // Construct edges where normals are pointed outwards.
         std::vector<Edge> edges;
@@ -154,7 +154,7 @@ std::optional<std::list<std::shared_ptr<Constraint>>> detectCollisionSAT(const B
                abs(max1-min2) < abs(overlap)) 
             {
                 overlap = max1-min2;
-                std::cout << overlap << std::endl;
+                std::cout << "overlap: " << overlap << std::endl;
                 contact_edge = edge;
                 changed = true;
             }
@@ -185,8 +185,8 @@ std::optional<std::list<std::shared_ptr<Constraint>>> detectCollisionSAT(const B
             contact_edge.n,
             p_edge,
             p_penetrating,
-            std::make_shared<Body>(*b_edge),
-            std::make_shared<Body>(*b_penetrating)));
+            b_edge,
+            b_penetrating));
 
         injectDebugEffect(std::make_shared<PointEffect>(p_edge, Red)); 
         injectDebugEffect(std::make_shared<PointEffect>(p_penetrating, Blue));
@@ -197,7 +197,8 @@ std::optional<std::list<std::shared_ptr<Constraint>>> detectCollisionSAT(const B
     return std::make_optional(constraints);
 }
 
-void ContactConstraint::resolve (const double dt) {
+// Returns impulse. Positive for penetrating body (b2)
+Vec2 ContactConstraint::resolve (const double dt) {
     // http://www.mft-spirit.nl/files/articles/ImpulseSolverBrief.pdf
     // https://raphaelpriatama.medium.com/sequential-impulses-explained-from-the-perspective-of-a-game-physics-beginner-72a37f6fea05
     // (Pa - Pb) * n = 0
@@ -229,9 +230,6 @@ void ContactConstraint::resolve (const double dt) {
     {
         double num = J * V;
         double den = dt * (J * MinvJt);
-
-        std::cout << num << '\t' << den << std::endl;
-
         lambda = - num / den;
     }
     // Apply Impulse
@@ -244,10 +242,12 @@ void ContactConstraint::resolve (const double dt) {
     const Vec2 impulseT = tan * (tan * vrel * mu);
 
     const Vec2 impulse = impulseN ;//+ impulseT;
-    b1.impulse(-impulse, Vec2(r1.x, r1.y));
-    b2.impulse( impulse, Vec2(r2.x, r2.y));
+    /*b1.impulse(-impulse, Vec2(r1.x, r1.y));*/
+    /*b2.impulse( impulse, Vec2(r2.x, r2.y));*/
 
     std::cout << "impulse mag: " << impulse.mag() << std::endl;
+    
+    return impulse;
 
     /*
     // (Sink Prevention) Positional Correction, Linear Projection
@@ -267,6 +267,11 @@ bool ContactConstraint::converged(const int iteration) {
         return true;
 
     // C: contact points touching
+
+    // Calculate contact points after impulse
+    // nv = v + dp
+    // rotate nv by angvelo * dt 
+
     /*
     injectDebugEffect(std::make_shared<PointEffect>(v1, Red)); 
     injectDebugEffect(std::make_shared<PointEffect>(v2, Green));
@@ -277,7 +282,8 @@ bool ContactConstraint::converged(const int iteration) {
 
     std::cout << "del mag: " << del.mag() << std::endl;
 
-    return del.mag() < 1;
+    //return del.mag() < 1;
+    return true;
 }
         
 // Checks for collisions and resolves accordingly.
@@ -293,7 +299,7 @@ void Environment::collide(const double dt) {
         for (int j=i+1; j<bodyList.size(); j++) 
         {
             // Check for collision
-            auto opt = detectCollisionSAT(bodyList[i].get(), bodyList[j].get());
+            auto opt = detectCollisionSAT(bodyList[i], bodyList[j]);
             if (!opt) continue;
             auto contacts = *opt;
 
@@ -302,20 +308,34 @@ void Environment::collide(const double dt) {
     }
 
     // sequential impulse
+    // do not accmulate impulse into velocity
+    // accmulate impulse for each body
+    // then apply impulse onto velocity
+    // convergence checker needs to apply the accumulated velocity and check from there.
+    // we do not apply it in collision
+    
+    // Body*, Translational impulse J, Rotational impulse L
+    std::map<Body*, std::pair<Vec2, double>> impulses;
+    auto accumulateJ = [&](std::shared_ptr<Body> b, Vec2 v, Vec2 impulse) {
+        auto [J, L] = impulses[b.get()];
+        impulses[b.get()] = std::make_pair(J + impulse, L + Vec2(-v.y, v.x) * impulse);
+    };
     int iteration = 0;
-    // while (!constraints.empty()) 
-    while (false)
+
+    while (!constraints.empty()) 
     {
         std::list<std::shared_ptr<Constraint>> nconstraints;
+
+        // Resolve collisions: accumulate impulse
         for (auto& constraint: constraints) {
-            // Resolve collision
-            constraint->resolve(dt);
+            auto impulse = constraint->resolve(dt);
+            accumulateJ(constraint->b1, constraint->v1, -impulse);
+            accumulateJ(constraint->b2, constraint->v2,  impulse);
+        }
 
-            // Update impulses
-            constraint->b1->update(dt);
-            constraint->b2->update(dt);
-
-            // Remove if converged
+        // Check Convergence with current accumulated impulse
+        // Remove if converged
+        for (auto& constraint: constraints) {
             if (!constraint->converged(iteration)) {
                 nconstraints.push_back(constraint);
             }
@@ -324,6 +344,13 @@ void Environment::collide(const double dt) {
         constraints = std::move(nconstraints);
         iteration++;
     }
+
+    // Apply impulse now
+    for (auto [body, impulse] : impulses) {
+        auto [J, L] = impulse;
+        body->impulse(J, L);
+    }
+
     if (iteration)
         std::cout << "iterations: " << iteration << std::endl;
 }

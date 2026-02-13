@@ -121,14 +121,14 @@ void Application::loop (View view, Environment env)
             body->accumulateForces(dt);
         }
 
+        // Collision & Correction
+        env.collide(dt);
+
         // Update
         for (auto& body : env.getBodiesMut()) 
         {
             body->update(dt);
         }
-
-        // Collision & Correction
-        env.collide(dt);
 
         // Render
         view.render(m_renderer, env);

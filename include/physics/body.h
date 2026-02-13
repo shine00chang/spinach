@@ -80,8 +80,8 @@ public:
     inline void setOrient  (double o)      { orient = o; }
 
     // Mutation
-    // Apply impulse J at relative point R
-    void impulse(const Vec2 j, const Vec2 r);
+    // Apply impulse J and angular impulse L
+    void impulse(const Vec2 J, const double L);
 
     // Convenience factories
     static std::shared_ptr<Body> makeRect(double x, double y, double w, double h, double m);

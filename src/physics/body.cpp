@@ -47,9 +47,14 @@ void Body::accumulateForces(const double dt) {
     angVelo += angAccl * dt;
 }
 
-void Body::impulse(const Vec2 j, const Vec2 r) {
-    velo = velo + (j * invMass);
-    angVelo += invInertia * (Vec2(-r.y, r.x) * j);
+void Body::impulse(const Vec2 J, const double L) {
+    std::cout << "pvelocity, pangvelocity: " << velo << ", " << angVelo << std::endl;
+    velo = velo + (J * invMass);
+    angVelo += invInertia * L;
+
+    std::cout << "dvelocity, dangvelocity: " << J * invMass << ", " << invInertia * L << std::endl;
+    std::cout << "velocity, angvelocity: " << velo << ", " << angVelo << std::endl;
+    std::cout << &*this << std::endl;
 }
 
 // Integration
@@ -57,6 +62,7 @@ void Body::impulse(const Vec2 j, const Vec2 r) {
 void Body::update(const double dt) {
 
     std::cout << "velocity, angvelocity: " << velo << ", " << angVelo << std::endl;
+    std::cout << &*this << std::endl;
     pos = pos + velo * dt;
     orient += angVelo * dt;
 
