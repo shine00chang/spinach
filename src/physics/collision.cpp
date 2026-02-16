@@ -151,7 +151,6 @@ std::optional<std::list<std::shared_ptr<Constraint>>> detectCollisionSAT(std::sh
                abs(max1-min2) < abs(overlap)) 
             {
                 overlap = max1-min2;
-                std::cout << "overlap: " << overlap << std::endl;
                 contact_edge = edge;
                 changed = true;
             }
@@ -174,6 +173,7 @@ std::optional<std::list<std::shared_ptr<Constraint>>> detectCollisionSAT(std::sh
     if (overlap < 0) {
         std::cout << "negative overlap.. weird: " << overlap << std::endl;   
     }
+    std::cout << "overlap: " << overlap << std::endl;
 
     // Make constraint out of every contact
     std::list<std::shared_ptr<Constraint>> constraints;
@@ -202,8 +202,12 @@ Vec2 ContactConstraint::resolve (const double dt) {
     // n * d/dt (Pa - Pb) + (Pa - Pb) * dn/dt = 0
     // n * (Vrel) = 0
     // n * (va + wa x ra - vb - wb x rb) = 0  
-    // (n  n x ra  -n  -n x rb) * (Va - Vb + dV)
-    // lamb = J V + B / J M-1 J^t dt
+    // (n  n x ra  -n  -n x rb) * (V + dV) = 0 V includes both A and B
+    // dV = J * lamb, that is, dV is in the direction of N
+    // J = (n  n x ra  -n  -n x rb)
+    // J * V + J * dV = 0
+    // J * V + J * dV = 0
+    // lamb = J V / J J^t dt
     // P = J^t lamb
 
     Body& b1 = *this->b1;
@@ -214,13 +218,13 @@ Vec2 ContactConstraint::resolve (const double dt) {
     Vec3 r1 = Vec3(this->v1 - b1.getPos());
     Vec3 r2 = Vec3(this->v2 - b2.getPos());
 
-    Vec12 J = Vec12(-n, -n^r1, n, n^r2);
+    Vec12 J = Vec12(-n, n^r1, n, -n^r2);
     Vec12 V = Vec12(Vec3(b1.getVelo()), Vec3(0, 0, b1.getAngVelo()), Vec3(b2.getVelo()), Vec3(0, 0, b2.getAngVelo()));
     Vec12 MinvJt = Vec12(
             -n * b1.getInvMass(),
-            -n^r1 * b1.getInvInertia(),
+            n^r1 * b1.getInvInertia(),
             n * b2.getInvMass(),
-            n^r2 * b2.getInvInertia());
+            -n^r2 * b2.getInvInertia());
     double b = 0;
 
     double lambda;
@@ -238,11 +242,8 @@ Vec2 ContactConstraint::resolve (const double dt) {
     const double mu = sqrt(b1.getFriction() * b2.getFriction());
     const Vec2 impulseT = tan * (tan * vrel * mu);
 
-    const Vec2 impulse = impulseN ;//+ impulseT;
-    /*b1.impulse(-impulse, Vec2(r1.x, r1.y));*/
-    /*b2.impulse( impulse, Vec2(r2.x, r2.y));*/
-
-    std::cout << "impulse mag: " << impulse.mag() << std::endl;
+    const Vec2 impulse = impulseN; //+ impulseT;
+    std::cout << "impulse:\t" << impulse << std::endl;
     
     return impulse;
 
@@ -258,7 +259,7 @@ Vec2 ContactConstraint::resolve (const double dt) {
     */
 }
 
-bool ContactConstraint::converged(const int iteration) {
+bool ContactConstraint::converged(const int iteration, Vec2 J1, double L1, Vec2 J2, double L2) {
 
     if (iteration >= 4) 
         return true;
@@ -269,15 +270,35 @@ bool ContactConstraint::converged(const int iteration) {
     // nv = v + dp
     // rotate nv by angvelo * dt 
 
-    /*
-    injectDebugEffect(std::make_shared<PointEffect>(v1, Red)); 
-    injectDebugEffect(std::make_shared<PointEffect>(v2, Green));
-    injectDebugEffect(std::make_shared<VectorEffect>(v1, this->norm * 30, Red));
-    */
 
-    Vec2 del = v1-v2;
+    auto pointVelocity = [](Vec2 p, Vec2 v, double angV, Vec2 bp) {
+        Vec3 r = p-bp;
+        Vec3 av = Vec3(0,0,angV) ^ r;
+        return v + Vec2(av.x, av.y);
+    };
 
-    std::cout << "del mag: " << del.mag() << std::endl;
+    auto applyImpulse = [](const Body& body, Vec2 J, double L) {
+        Vec2 nv = body.getVelo() + (J * body.getInvMass());
+        double nw = body.getAngVelo() + body.getInvInertia() * L;
+        return std::make_pair(nv,nw);
+    };
+
+
+    auto [nv1, nw1] = applyImpulse(*b1, J1, L1);
+    auto [nv2, nw2] = applyImpulse(*b2, J2, L2);
+
+    std::cout << "velocity, angvelocity:\t" << b1->getVelo() << ",\t" << b1->getAngVelo() << std::endl;
+    std::cout << "velocity, angvelocity:\t" << b2->getVelo() << ",\t" << b2->getAngVelo() << std::endl;
+    std::cout << "velocity, angvelocity, v1:\t" << nv1 << ",\t" << nw1 << ",\t" << (v1-b1->getPos()) << std::endl;
+    std::cout << "velocity, angvelocity, v2:\t" << nv2 << ",\t" << nw2 << ",\t" << (v2-b2->getPos()) << std::endl;
+
+    Vec2 delP = v1-v2;
+    Vec2 delV = pointVelocity(v1, nv1, nw1, b1->getPos()) + pointVelocity(v2, nv2, nw2, b2->getPos());
+
+    injectDebugEffect(std::make_shared<VectorEffect>(v1, pointVelocity(v1, nv1, nw1, b1->getPos()) * 0.1, Red));
+    injectDebugEffect(std::make_shared<VectorEffect>(v2, pointVelocity(v2, nv2, nw2, b2->getPos()) * 0.1, Red));
+
+    std::cout << "delP mag: " << delP.mag() << "\tdelV * n: " << (delV * norm) << std::endl;
 
     //return del.mag() < 1;
     return true;
@@ -315,8 +336,9 @@ void Environment::collide(const double dt) {
     std::map<Body*, std::pair<Vec2, double>> impulses;
     auto accumulateJ = [&](std::shared_ptr<Body> b, Vec2 v, Vec2 impulse) {
         auto [J, L] = impulses[b.get()];
-        Vec2 p = v - b->getPos();
-        impulses[b.get()] = std::make_pair(J + impulse, L + Vec2(-p.y, p.x) * impulse);
+        Vec3 r = v-b->getPos();
+        Vec3 dL = r ^ impulse;
+        impulses[b.get()] = std::make_pair(J + impulse, L + dL.z);
     };
     int iteration = 0;
 
@@ -334,7 +356,9 @@ void Environment::collide(const double dt) {
         // Check Convergence with current accumulated impulse
         // Remove if converged
         for (auto& constraint: constraints) {
-            if (!constraint->converged(iteration)) {
+            if (!constraint->converged(iteration,
+                    impulses[constraint->b1.get()].first, impulses[constraint->b1.get()].second,
+                    impulses[constraint->b2.get()].first, impulses[constraint->b2.get()].second)) {
                 nconstraints.push_back(constraint);
             }
         }
@@ -346,6 +370,7 @@ void Environment::collide(const double dt) {
     // Apply impulse now
     for (auto [body, impulse] : impulses) {
         auto [J, L] = impulse;
+        std::cout << "J:\t" << J << "\tL:\t" << L << std::endl;
         body->impulse(J, L);
     }
 

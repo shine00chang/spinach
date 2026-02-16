@@ -18,7 +18,7 @@ public:
         b1(b1), b2(b2), v1(v1), v2(v2) {};
 
     virtual Vec2 resolve(const double dt) =0;
-    virtual bool converged(const int iteration) =0;
+    virtual bool converged(const int iteration, const Vec2 J1, const double L1, const Vec2 J2, const double L2) =0;
 
     virtual ~Constraint() {};
 };
@@ -32,7 +32,7 @@ public:
     ContactConstraint (const Vec2& norm, const Vec2& v1, const Vec2& v2, std::shared_ptr<Body> b1, std::shared_ptr<Body> b2) :
         Constraint(b1, b2, v1, v2), norm(norm) {};
     Vec2 resolve(const double dt) override;
-    bool converged(const int iteration) override;
+    bool converged(const int iteration, const Vec2 J1, const double L1, const Vec2 J2, const double L2) override;
 
     ~ContactConstraint() override {}
 };

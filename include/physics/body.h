@@ -54,7 +54,7 @@ public:
     inline bool getGravity () const { return gravity; }
     inline Vec2 getPos     () const { return pos; }
     inline Vec2 getVelo    () const { return velo; }
-    inline double getAngVelo () const { return angAccl; }
+    inline double getAngVelo () const { return angVelo; }
     inline double getAngAccl () const { return angAccl; }
 
     // Point getters, has transformation logic 
