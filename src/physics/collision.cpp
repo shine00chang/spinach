@@ -1,11 +1,9 @@
 #include "core.h"
 #include "environment.h"
 #include "constraint.h"
-#include "app.h"
 #include "view.h"
 
 #include <cmath>
-#include <limits>
 #include <utility>
 #include <vector>
 #include <list>
@@ -218,45 +216,72 @@ Vec2 ContactConstraint::resolve (const double dt) {
     Vec3 r1 = Vec3(this->v1 - b1.getPos());
     Vec3 r2 = Vec3(this->v2 - b2.getPos());
 
-    Vec12 J = Vec12(-n, n^r1, n, -n^r2);
-    Vec12 V = Vec12(Vec3(b1.getVelo()), Vec3(0, 0, b1.getAngVelo()), Vec3(b2.getVelo()), Vec3(0, 0, b2.getAngVelo()));
-    Vec12 MinvJt = Vec12(
+    // Construct Jacobian
+    const Vec12 J = Vec12(-n, n^r1, n, -n^r2);
+    const Vec12 V = Vec12(Vec3(b1.getVelo()), Vec3(0, 0, b1.getAngVelo()), Vec3(b2.getVelo()), Vec3(0, 0, b2.getAngVelo()));
+    const Vec12 MinvJ_tp = Vec12(
             -n * b1.getInvMass(),
             n^r1 * b1.getInvInertia(),
             n * b2.getInvMass(),
             -n^r2 * b2.getInvInertia());
+
+    // Calculate Bias
     double b = 0;
-
-    double lambda;
-    {
-        double num = J * V;
-        double den = dt * (J * MinvJt);
-        lambda = - num / den;
+    {   // Baumgarte Stabilization
+        // adds energy to produce impulse to separate penetration.
+        // energy is proportional to the positional penetration. 
+        // allows set bit of penetration (slop) so as to not introduce energy when the system is near stable.
+        // NOTE: not sure why its negative.. isn't it adding energy? might be the sign depending on which body its applied to
+        double Baumgarte = 0.2;
+        double d = (v1-v2) * norm;
+        double slopallowance = 2;
+        d = std::max(d-slopallowance, 0.0);
+        b += - Baumgarte * d / dt;
     }
-    // Apply Impulse
-    const Vec2 impulseN = this->norm * dt * lambda;
+    {   // Restitution
+        // adds energy proportional to the relevative normal velocity, to produce 'bounce'
+        double restitution = 0.15;
+        double vreln = J * V;
+        double slopallowance = 5;
+        vreln = std::max(vreln-slopallowance, 0.0);
+        b += restitution * vreln;
+    }
 
-    const Vec2 tan = Vec2(this->norm.y, this->norm.x);
-    const Vec2 vrel = b1.getVelo() + Vec2( -r1.y, r1.x) * b1.getAngVelo() -
-                      b2.getVelo() - Vec2( -r2.y, r2.x) * b2.getAngVelo();
-    const double mu = sqrt(b1.getFriction() * b2.getFriction());
-    const Vec2 impulseT = tan * (tan * vrel * mu);
+    // Calculate resolution
+    Vec2 impulseN;
+    {
+        double num = J * V + b;
+        double den = dt * (J * MinvJ_tp);
+        double lambda = - num / den;
+        impulseN = this->norm * dt * lambda;
+    }
 
-    const Vec2 impulse = impulseN; //+ impulseT;
+    // Calculate Friction
+    // Friction Impulse is a fraction of the relative tangent velocity 
+    // clamped by the normal impulse times coeffecient of friction
+    Vec2 impulseT;
+    {
+        const Vec3 t = Vec3(-this->norm.y, this->norm.x, 0);
+        const Vec12 Jt = Vec12(-t, t^r1, t, -t^r2);
+        const Vec12 MinvJt_tp = Vec12(
+            -t * b1.getInvMass(),
+            t^r1 * b1.getInvInertia(),
+            t * b2.getInvMass(),
+            -t^r2 * b2.getInvInertia());
+
+        double num = Jt * V;
+        double den = dt * (Jt * MinvJt_tp);
+        double lambda = - num / den;
+
+        double mu = 0.5;
+        double mag = std::min(mu * impulseN.mag(), dt * lambda);
+        impulseT = Vec2(t.x * mag, t.y * mag);
+    }
+
+    const Vec2 impulse = impulseN + impulseT;
     std::cout << "impulse:\t" << impulse << std::endl;
     
     return impulse;
-
-    /*
-    // (Sink Prevention) Positional Correction, Linear Projection
-    const double percent = 0.2;     // usually 20% to 80% 
-    const double slop    = 0.01;    // usually 0.01 to 0.1 
-    double correction = percent * std::max( this->depth - slop, (double) 0 ) / (b1.getInvMass() + b2.getInvMass());
-    Vec2 correctionV = this->norm * correction;
-
-    b1.setPos(b1.getPos() - correctionV * b1.getInvMass());
-    b2.setPos(b2.getPos() + correctionV * b2.getInvMass());
-    */
 }
 
 bool ContactConstraint::converged(const int iteration, Vec2 J1, double L1, Vec2 J2, double L2) {
