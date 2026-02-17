@@ -87,4 +87,6 @@ public:
     static std::shared_ptr<Body> makeRect(double x, double y, double w, double h, double m);
     static std::shared_ptr<Body> makeDiamond(double x, double y, double r, double m);
 };
+
+typedef std::vector<std::shared_ptr<Body>> Bodies;
 #endif

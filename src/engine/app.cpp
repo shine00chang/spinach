@@ -2,6 +2,7 @@
 #include "SDL.h"
 #include "SDL_events.h"
 #include "SDL_render.h"
+#include "constraint.h"
 #include "environment.h"
 #include "SDL_timer.h"
 #include "SDL_keyboard.h"
@@ -121,8 +122,14 @@ void Application::loop (View view, Environment env)
             body->accumulateForces(dt);
         }
 
-        // Collision & Correction
-        env.collide(dt);
+        Constraints constraints;
+        // Collision Constraints
+        {
+            auto l = collide(env, dt);
+            constraints.splice(constraints.end(), l);
+        }
+
+        sequentialImpulse(constraints, dt);
 
         // Update
         for (auto& body : env.getBodiesMut()) 
