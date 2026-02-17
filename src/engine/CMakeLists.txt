@@ -1,9 +1,9 @@
 file(GLOB SOURCES *.cpp)
 
-set(LIB_NAME physicsLib)
+set(LIB_NAME engine)
 
 add_library(${LIB_NAME} STATIC ${SOURCES})
-target_include_directories(${LIB_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include/physics)
+target_include_directories(${LIB_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include/${LIB_NAME})
 
 
 find_package(SDL2 REQUIRED)

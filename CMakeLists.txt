@@ -10,8 +10,7 @@ set(PROJECT_NAME spinach)
 
 project(${PROJECT_NAME})
 
-add_subdirectory(src/physics)
+add_subdirectory(src/engine)
 add_subdirectory(src/dev)
 add_subdirectory(src/angryBirds)
-add_subdirectory(src/unittest)
 
