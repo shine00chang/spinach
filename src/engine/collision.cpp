@@ -234,7 +234,7 @@ Vec2 ContactConstraint::resolve (const double dt) {
         // energy is proportional to the positional penetration. 
         // allows set bit of penetration (slop) so as to not introduce energy when the system is near stable.
         // NOTE: not sure why its negative.. isn't it adding energy? might be the sign depending on which body its applied to
-        double Baumgarte = 0.9;
+        double Baumgarte = 0.4;
         double d = (v1-v2) * norm;
         double slopallowance = 2;
         d = std::max(d-slopallowance, 0.0);

@@ -24,16 +24,11 @@ void envController (Environment* env, const Application& app, View& view)
         auto effect = std::make_shared<PointEffect>(Vec2(app.mouse().x, app.mouse().y), launching ? Red : Black);
         view.addEffect(effect);
     }
-
-    // Spawn in new block
-    if (app.mouseClicked()) {
-
-    }
-
     // Launch Bird
     if (app.isPressed(SDLK_SPACE)) {
         launching = !launching;
     }
+    // Spawn in new block
     if (app.mouseClicked()) {
         
         if (!launching) {
@@ -62,7 +57,7 @@ Environment env () {
     Environment env;
 
     auto sling = Body::makeRect(50, 25 + 50, 20, 100, 1e-10);
-    bird  = Body::makeRect(k_launchx, k_launchy, 30, 30, 100);
+    bird = Body::makeRect(k_launchx, k_launchy, 30, 30, 100);
     bird->setGravity(false);
     auto floor = Body::makeRect(340, 0, 680, 50, 1e10);
     floor->setGravity(false);
