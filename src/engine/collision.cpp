@@ -207,6 +207,8 @@ Vec2 ContactConstraint::resolve (const double dt) {
     // J * V + J * dV = 0
     // lamb = J V / J J^t dt
     // P = J^t lamb
+    // TODO: P is then clamped such that sum(P) over all iterations > 0
+    // NOTE: right now, we are assuming 1 iteration
 
     Body& b1 = *this->b1;
     Body& b2 = *this->b2;
@@ -232,7 +234,7 @@ Vec2 ContactConstraint::resolve (const double dt) {
         // energy is proportional to the positional penetration. 
         // allows set bit of penetration (slop) so as to not introduce energy when the system is near stable.
         // NOTE: not sure why its negative.. isn't it adding energy? might be the sign depending on which body its applied to
-        double Baumgarte = 0.2;
+        double Baumgarte = 0.9;
         double d = (v1-v2) * norm;
         double slopallowance = 2;
         d = std::max(d-slopallowance, 0.0);
@@ -240,19 +242,20 @@ Vec2 ContactConstraint::resolve (const double dt) {
     }
     {   // Restitution
         // adds energy proportional to the relevative normal velocity, to produce 'bounce'
-        double restitution = 0.15;
+        double restitution = 0.1;
         double vreln = J * V;
         double slopallowance = 5;
         vreln = std::max(vreln-slopallowance, 0.0);
         b += restitution * vreln;
     }
 
-    // Calculate resolution
+    // Calculate resolutionm impulse 
     Vec2 impulseN;
     {
         double num = J * V + b;
         double den = dt * (J * MinvJ_tp);
         double lambda = - num / den;
+        lambda = std::max(lambda, 0.0);
         impulseN = this->norm * dt * lambda;
     }
 
