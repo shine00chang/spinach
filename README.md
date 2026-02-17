@@ -1,11 +1,16 @@
-# 2D Physics Simulator (with demos)
+# Spinach
 
-A simple 2D physics engine made as an exercise. <br>
-Watch demos [here](https://github.com/shine00chang/sim/blob/main/demo-videos)! 
+A 2D physics engine made as an exercise. <br>
+Written with the goal of simulating physical dynamic systems and controllers <br>
+Requires SDL2, built with CMake. <br>
 
-Check out Erin Catto's `box2d-lite` for a complete 2D physics engine. <br>
-Requires SDL2. <br>
-Uses CMake. <br>
+## The engine
+The engine is built on constraint-based physics, resolved with Erin Catto’s sequential impulse.
+Library API designed for building physical "environments" of "bodies," with assigned controlling functions and "positional constraints." (fixtures, or mates).
+
+Resources:
+- Erin Catto's [slide deck from GDC 2006](https://box2d.org/files/ErinCatto_SequentialImpulses_GDC2006.pdf)
+- Allen Chou's [blog series on game physics](https://allenchou.net/game-physics-series/)
 
 ## Building
 - Install SDL2
@@ -14,12 +19,3 @@ Uses CMake. <br>
 - Build: 
     - Linux: `make`
 
-## Demos
-Now it should be ready. Here are the built-in demos:
-
-`bin/dev`:
-- Testing environments.
-- Try running it and press the space key & watch blocks fall from the sky!
-
-`bin/angrybirds`: (*building...*)
-- Angry Birds-like environment
