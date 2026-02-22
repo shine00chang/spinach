@@ -147,7 +147,7 @@ Vec2 ContactConstraint::resolve (const double dt)
         double lambda = - num / den;
 
         double mu = 0.5;
-        double mag = std::min(mu * impulseN.mag(), dt * lambda);
+        double mag = std::clamp(dt * lambda, -mu * impulseN.mag(), mu * impulseN.mag());
         impulseT = Vec2(t.x * mag, t.y * mag);
     }
 
