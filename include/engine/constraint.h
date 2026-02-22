@@ -20,7 +20,7 @@ public:
         b1(b1), b2(b2) {};
 
     virtual Vec2 resolve(const double dt) =0;
-    virtual bool converged(const int iteration, Impulse j1, Impulse j2) =0;
+    virtual bool converged(const int iteration, Impulse j1, Impulse j2, double dt) =0;
 
     virtual ~Constraint() {};
 };
@@ -42,8 +42,9 @@ public:
 
     ContactConstraint (const Vec2& norm, const Vec2& v1, const Vec2& v2, std::shared_ptr<Body> b1, std::shared_ptr<Body> b2) :
         Constraint(b1, b2), norm(norm), v1(v1), v2(v2) {};
+
     Vec2 resolve(const double dt) override;
-    bool converged(const int iteration, Impulse j1, Impulse j2) override;
+    bool converged(const int iteration, Impulse j1, Impulse j2, double dt) override;
 
     ~ContactConstraint() override {}
 };
@@ -52,14 +53,19 @@ public:
 // This enforces two verticies on two bodies to be coincident.
 class CoincidentConstraint : public Constraint {
 public:
-    // NOTE: points are in absolute.
+    // NOTE: points are in relative.
     Vec2 v1;
     Vec2 v2;
+    
+    Vec2 warming;
 
     CoincidentConstraint (const Vec2& v1, const Vec2& v2, std::shared_ptr<Body> b1, std::shared_ptr<Body> b2) :
-        Constraint(b1, b2), v1(v1), v2(v2) {};
+        Constraint(b1, b2), v1(v1), v2(v2), warming(Vec2(0,0)) {};
+
     Vec2 resolve(const double dt) override;
-    bool converged(const int iteration, Impulse j1, Impulse j2) override;
+    bool converged(const int iteration, Impulse j1, Impulse j2, double dt) override;
+
+    static std::shared_ptr<Constraint> mate (std::shared_ptr<Body> b1, Vec2 v1, std::shared_ptr<Body> b2, Vec2 v2);
 
     ~CoincidentConstraint() override {}
 };

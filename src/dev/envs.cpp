@@ -1,6 +1,8 @@
+#include "constraint.h"
 #include "environment.h"
 #include "app.h"
 #include <SDL_keycode.h>
+#include <memory>
 
 /*
  * Debug / Test purposes. 
@@ -68,7 +70,6 @@ Environment test2() {
     env.addBody(r1);
     env.addBody(r2);
 
-
     return env;
 }
 
@@ -89,7 +90,6 @@ Environment test3() {
 
     env.addBody(r1);
     env.addBody(r2);
-
 
     return env;
 }
@@ -162,6 +162,73 @@ Environment rainyDay () {
     return env;
 }
 
+void cartController (Body* body, const Application& app, View& view) {
+    static double v = 30;
+    if (app.isPressed(SDLK_LEFT)) {
+        v -= 20;
+        body->setVelo(Vec2(v, 0));
+    }
+    if (app.isPressed(SDLK_RIGHT)) {
+        v += 20;
+        body->setVelo(Vec2(v,0));
+    }
+    body->setVelo(Vec2(v, 0));
+}
+Environment pendulum () {
+    Environment env;
+    auto cart = Body::makeRect(340, 400, 100, 30, 0);
+    auto pend = Body::makeRect(0, 0, 200, 200, 10);
+    
+    cart->setGravity(false);
+    cart->useController(cartController);
+
+    pend->setOrient(3.14 / 4.0);
+
+    auto mate = CoincidentConstraint::mate(cart, Vec2(0, -15), pend, Vec2(100, 100)); 
+    std::cout << pend->getInvInertia() << std::endl;
+
+    env.addBody(cart);
+    env.addBody(pend);
+    env.addConstraint(mate);
+    return env;
+}
+Environment pointPendulum () {
+    Environment env;
+    auto cart = Body::makeRect(340, 400, 100, 30, 0);
+    auto pend = Body::makeRect(0, 0, 20, 20, 10);
+    
+    cart->setGravity(false);
+    cart->useController(cartController);
+
+    pend->setOrient(3.14 / 4.0);
+    std::cout << pend->getInvInertia() << std::endl;
+
+    auto mate = CoincidentConstraint::mate(cart, Vec2(0, -15), pend, Vec2(100, 100)); 
+
+    env.addBody(cart);
+    env.addBody(pend);
+    env.addConstraint(mate);
+    return env;
+}
+
+Environment invertedPendulum () {
+    Environment env;
+    auto cart = Body::makeRect(340, 100, 100, 30, 0);
+    auto pend = Body::makeRect(0, 0, 100, 100, 10);
+    
+    cart->setGravity(false);
+    cart->useController(cartController);
+
+    pend->setOrient(3.14 / 4.0);
+
+    auto mate = CoincidentConstraint::mate(cart, Vec2(0, 15), pend, Vec2(-50, -50)); 
+
+    env.addBody(cart);
+    env.addBody(pend);
+    env.addConstraint(mate);
+    return env;
+}
+
 void setEnvs () {
     DefaultEnv = "rainyDay";
     EnvironmentLibrary = {
@@ -171,5 +238,8 @@ void setEnvs () {
         {"fallingDiamond", fallingDiamond()},
         {"rainyDay", rainyDay()},
         {"stacking", stacking()},
+        {"pendulum", pendulum()},
+        {"pointPendulum", pointPendulum()},
+        {"invertedPendulum", invertedPendulum()}
     };
 }

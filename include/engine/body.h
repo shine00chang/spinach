@@ -54,6 +54,7 @@ public:
     inline bool getGravity () const { return gravity; }
     inline Vec2 getPos     () const { return pos; }
     inline Vec2 getVelo    () const { return velo; }
+    inline double getOrientation () const { return orient; }
     inline double getAngVelo () const { return angVelo; }
     inline double getAngAccl () const { return angAccl; }
 
@@ -71,6 +72,9 @@ public:
             p = p.rotate(orient) + pos;
         return v;
     }
+    inline const Vec2 getRel (Vec2 p) const {
+        return pos + p.rotate(orient);
+    }
     
     // Setter
     inline void setGravity (bool b)        { gravity = b; }
@@ -78,6 +82,7 @@ public:
     inline void setVelo    (const Vec2& v) { velo = v; } 
     inline void setAngAccl (double a)      { angAccl = a; }
     inline void setOrient  (double o)      { orient = o; }
+    inline void setInertia (double i)      { inertia = i; invInertia = 1.0 / i; }
 
     // Mutation
     // Apply impulse J and angular impulse L

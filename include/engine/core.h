@@ -121,4 +121,44 @@ struct Vec12 {
     }
 };
 
+struct Mat22 {
+    double a;
+    double b;
+    double c;
+    double d;
+
+    inline Mat22 operator + (const Mat22& o) const { 
+        return Mat22 {
+            .a = a + o.a,
+            .b = b + o.b,
+            .c = c + o.c,
+            .d = d + o.d,
+        };
+    }
+    inline Mat22 operator * (const double o) const {  
+        return Mat22 {
+            .a = a * o,
+            .b = b * o,
+            .c = c * o,
+            .d = d * o,
+        };
+    }
+    inline Vec2 operator * (const Vec2& o)  const { 
+        return Vec2(
+            o.x * a + o.y * b,
+            o.x * c + o.y * d
+        );
+    }
+
+    inline Mat22 inv () const {
+        Mat22 t = {
+            .a = d,
+            .b = -c,
+            .c = -b,
+            .d = a,
+        };
+        return t * (1 / (a*d - b*c));
+    }
+};
+
 #endif

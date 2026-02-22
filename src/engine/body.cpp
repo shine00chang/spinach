@@ -48,12 +48,8 @@ void Body::accumulateForces(const double dt) {
 }
 
 void Body::impulse(const Vec2 J, const double L) {
-    std::cout << "pvelocity, pangvelocity: " << velo << ", " << angVelo << std::endl;
     velo = velo + (J * invMass);
     angVelo += invInertia * L;
-
-    std::cout << "dvelocity, dangvelocity: " << J * invMass << ", " << invInertia * L << std::endl;
-    std::cout << "velocity, angvelocity: " << velo << ", " << angVelo << std::endl;
 }
 
 // Integration

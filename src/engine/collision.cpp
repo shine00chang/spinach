@@ -2,6 +2,7 @@
 #include "environment.h"
 #include "constraint.h"
 #include "view.h"
+#include "assert.h"
 
 #include <cmath>
 #include <utility>
@@ -174,9 +175,6 @@ std::optional<Constraints> detectCollisionSAT(std::shared_ptr<Body> b1, std::sha
 
     return std::make_optional(constraints);
 }
-
-
-        
 
 // Checks for collisions and resolves accordingly.
 Constraints collide(Environment& env, const double dt) 

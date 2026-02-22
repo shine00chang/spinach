@@ -1,6 +1,7 @@
 #include "app.h"
 #include "SDL.h"
 #include "SDL_events.h"
+#include "SDL_keycode.h"
 #include "SDL_render.h"
 #include "constraint.h"
 #include "environment.h"
@@ -8,8 +9,6 @@
 #include "SDL_keyboard.h"
 #include "environment.h"
 
-#include <string>
-#include <format>
 #include <memory>
 
 
@@ -98,7 +97,7 @@ void Application::loop (View view, Environment env)
         if (isPressed(SDLK_p)) paused = !paused;
 
         // If paused and next frame not pressed, skip.
-        if (paused && !isPressed(SDLK_RIGHT)) {
+        if (paused && !isPressed(SDLK_n)) {
             //view.render(m_renderer, env);
             continue;
         }
@@ -122,7 +121,7 @@ void Application::loop (View view, Environment env)
             body->accumulateForces(dt);
         }
 
-        Constraints constraints;
+        Constraints constraints = env.getConstraints();
         // Collision Constraints
         {
             auto l = collide(env, dt);
