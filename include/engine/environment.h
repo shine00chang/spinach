@@ -23,7 +23,7 @@ public:
      Environment() {};
     ~Environment() {};
 
-    void runControllers (Application& app, View& view);
+    void runControllers (Application& app, View& view, double dt);
 
     void addBody       (const std::shared_ptr<Body> body) { m_bodies.push_back(body); } 
     void addController (const EnvController controller) { m_controllers.push_back(controller); }

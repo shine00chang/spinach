@@ -40,7 +40,7 @@ public:
     ~Body() {};
 
     void useController  (Controller controller) { m_controllers.push_back(controller); }
-    void runControllers (const Application& app, View& view); 
+    void runControllers (const Application& app, View& view, double dt); 
 
     void applyForce (const Vec2& f);
     void accumulateForces (const double dt);

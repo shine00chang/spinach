@@ -82,7 +82,7 @@ void sequentialImpulse (Constraints constraints, const double dt)
     }
 
     if (iteration)
-        std::cout << "iterations: " << iteration << std::endl;
+        std::cerr << "iterations: " << iteration << std::endl;
 }
 
 // Returns impulse. Positive for penetrating body (b2)
@@ -169,14 +169,14 @@ Vec2 ContactConstraint::resolve (const double dt)
         double den = dt * (Jt * MinvJt_tp);
         double lambda = - num / den;
 
-        std::cout << "tangent unclamped: " << dt *lambda << std::endl;
+        std::cerr << "tangent unclamped: " << dt *lambda << std::endl;
         double mu = 0.5;
         double mag = std::clamp(dt * lambda, -mu * impulseN.mag(), mu * impulseN.mag());
         impulseT = Vec2(t.x * mag, t.y * mag);
     }
 
     const Vec2 impulse = impulseN + impulseT;
-    std::cout << "contact impulse:\t" << impulse << std::endl;
+    std::cerr << "contact impulse:\t" << impulse << std::endl;
     
     accumulateJ(this->b1, v1, -impulse);
     accumulateJ(this->b2, v2,  impulse);
@@ -201,7 +201,7 @@ bool ContactConstraint::converged(const int iteration, Impulse j1, Impulse j2, d
     //injectDebugEffect(std::make_shared<VectorEffect>(Vec2(p1.x, p1.y), Vec2(V1.x, V1.y) * 0.1, Red));
     //injectDebugEffect(std::make_shared<VectorEffect>(Vec2(p2.x, p2.y), Vec2(V2.x, V2.y) * 0.1, Red));
 
-    //std::cout << "CONTACT: delP mag: " << delP.mag() << "\t" << "delV mag: " << delV.mag() << std::endl;
+    //std::cerr << "CONTACT: delP mag: " << delP.mag() << "\t" << "delV mag: " << delV.mag() << std::endl;
 
     return true;
 }
@@ -225,7 +225,7 @@ Vec2 CoincidentConstraint::resolve (const double dt)
     Vec3 r2 = v2.rotate(s2.o);
 
     Vec3 delV = s1.v + (s1.w ^ r1) - s2.v - (s2.w ^ r2);
-    std::cout << "delV:\t" << delV << std::endl;
+    std::cerr << "delV:\t" << delV << std::endl;
 
     // dV = dV0 + K * J 
     // J = - K^-1 * dV0 
@@ -260,7 +260,7 @@ Vec2 CoincidentConstraint::resolve (const double dt)
 
     Vec2 impulse = Kinv * (Vec2(delV.x, delV.y) + baumgarte);
 
-    std::cout << "coincident impulse:\t" << impulse << std::endl;
+    std::cerr << "coincident impulse:\t" << impulse << std::endl;
     
     accumulateJ(this->b1, s1.p+r1, -impulse);
     accumulateJ(this->b2, s2.p+r2,  impulse);
@@ -286,7 +286,7 @@ bool CoincidentConstraint::converged(const int iteration, Impulse j1, Impulse j2
     injectDebugEffect(std::make_shared<VectorEffect>(Vec2(p1.x, p1.y), Vec2(V1.x, V1.y) * 0.1, Red));
     injectDebugEffect(std::make_shared<VectorEffect>(Vec2(p2.x, p2.y), Vec2(V2.x, V2.y) * 0.1, Red));
 
-    std::cout << "COINCIDENT: delP mag: " << delP.mag() << "\t" << "delV mag: " << delV.mag() << std::endl;
+    std::cerr << "COINCIDENT: delP mag: " << delP.mag() << "\t" << "delV mag: " << delV.mag() << std::endl;
 
     if (iteration >= 4) 
         return true;

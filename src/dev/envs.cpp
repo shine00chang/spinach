@@ -4,99 +4,9 @@
 #include <SDL_keycode.h>
 #include <memory>
 
-/*
- * Debug / Test purposes. 
- * WASD to increment position. Arrow keys to apply force.
- */
-void debugController (Body* body, const Application& app, View& view) {
-    if (app.isHeld(SDLK_w)) {
-        body->applyForce(Vec2(0, 100));
-    }
-    if (app.isHeld(SDLK_a)) {
-        body->applyForce(Vec2(-100, 0));
-    }
-    if (app.isHeld(SDLK_s)) {
-        body->applyForce(Vec2(0, -100));
-    }
-    if (app.isHeld(SDLK_d)) {
-        body->applyForce(Vec2(100, 0));
-    }
-    if (app.isHeld(SDLK_q)) {
-        body->setAngAccl( body->getAngAccl() + 0.1 );
-    }
-    if (app.isHeld(SDLK_e)) {
-        body->setAngAccl( body->getAngAccl() - 0.1 );
-    }
-}
-
-/*
- * A floor and two blocks, one with some downward initial velocity
- * This tests for gravity, basic collision, and sinking.
- */ 
-Environment test1() {
-    Environment env; 
-
-    auto r1 = Body::makeRect(360, 400, 50, 50, 10);
-    auto r2 = Body::makeRect(300, 330, 50, 50, 10);
-    r1->applyForce(Vec2{0, -10000});
-    r1->setOrient(std::atan(0.6));
-    r2->setOrient(std::atan(1.5));
-
-    auto floor = Body::makeRect(340, 0, 680, 50, 0);
-    floor->setGravity(false);
-
-    env.addBody(r1);
-    env.addBody(r2);
-    env.addBody(floor);
-
-    return env;
-}
-
-/*
- * Two blocks, one with a force controller, and no gravity.
- * Tests for collision detection & resolution.
- */ 
-Environment test2() {
-    Environment env;
-
-    auto r1 = Body::makeRect(340, 300, 50, 50, 10);
-    auto r2 = Body::makeRect(300, 200, 50, 50, 10);
-
-    r1->setGravity(false);
-    r2->setGravity(false);
-
-    r1->useController(debugController);
-
-    env.addBody(r1);
-    env.addBody(r2);
-
-    return env;
-}
-
-/*
- * A block and a diamond, one with a force controller, and no gravity.
- * Tests for collision detection on a non-AABB shape.
- */ 
-Environment test3() {
-    Environment env;
-
-    auto r1 = Body::makeDiamond(300, 300, 50, 10);
-    auto r2 = Body::makeRect(200, 200, 50, 50, 10); 
-
-    r1->setGravity(false);
-    r2->setGravity(false);
-
-    r1->useController(debugController);
-
-    env.addBody(r1);
-    env.addBody(r2);
-
-    return env;
-}
-
 /* Falling Diamond
  */ 
-Environment fallingDiamond() {
+Environment falling() {
     Environment env;
 
     auto r1 = Body::makeRect(340, 300, 50, 50, 10);
@@ -109,7 +19,6 @@ Environment fallingDiamond() {
 
     return env;
 }
-
 
 /* Stacking
  */ 
@@ -134,7 +43,7 @@ Environment stacking() {
 /* Gravity & Floor. 
  * Creates random falling block when space bar is pressed
  */
-void rainyController (Environment* env, const Application& app, View& view) {
+void rainController (Environment* env, const Application& app, View& view, double dt) {
     if (!app.isPressed(SDLK_SPACE))
         return;
 
@@ -148,7 +57,7 @@ void rainyController (Environment* env, const Application& app, View& view) {
     env->addBody(b);
 }
 
-Environment rainyDay () {
+Environment rain () {
     Environment env;
 
     auto r1 = Body::makeRect(340, 300, 50, 50, 10);
@@ -157,13 +66,13 @@ Environment rainyDay () {
     floor->setGravity(false);
 
     env.addBody(floor);
-    env.addController(rainyController);
+    env.addController(rainController);
 
     return env;
 }
 
-void cartController (Body* body, const Application& app, View& view) {
-    static double v = 30;
+void cartControllerManual (Body* body, const Application& app, View& view, double dt) {
+    static double v = 0;
     if (app.isPressed(SDLK_LEFT)) {
         v -= 20;
         body->setVelo(Vec2(v, 0));
@@ -174,13 +83,14 @@ void cartController (Body* body, const Application& app, View& view) {
     }
     body->setVelo(Vec2(v, 0));
 }
-Environment pendulum () {
+
+Environment physicalPendulum () {
     Environment env;
     auto cart = Body::makeRect(340, 400, 100, 30, 0);
     auto pend = Body::makeRect(0, 0, 200, 200, 10);
     
     cart->setGravity(false);
-    cart->useController(cartController);
+    cart->useController(cartControllerManual);
 
     pend->setOrient(3.14 / 4.0);
 
@@ -192,13 +102,14 @@ Environment pendulum () {
     env.addConstraint(mate);
     return env;
 }
-Environment pointPendulum () {
+
+Environment pendulum () {
     Environment env;
     auto cart = Body::makeRect(340, 400, 100, 30, 0);
     auto pend = Body::makeRect(0, 0, 20, 20, 10);
     
     cart->setGravity(false);
-    cart->useController(cartController);
+    cart->useController(cartControllerManual);
 
     pend->setOrient(3.14 / 4.0);
     std::cout << pend->getInvInertia() << std::endl;
@@ -211,13 +122,57 @@ Environment pointPendulum () {
     return env;
 }
 
+double thetaZero = -100;
+std::shared_ptr<Body> pend;
+int counter = 0;
+
+void invertedPendulumController (Body* body, const Application& app, View& view, double dt) {
+    if (counter++ < 10) {
+        return;
+    }
+    counter = 0;
+
+    double theta = pend->getOrientation();
+    if (thetaZero == -100) thetaZero = theta;
+    theta -= thetaZero;
+    static double thetaPrev = theta;
+
+    //double kP = theta * thetaPrev < 0 ? 10 : 30;
+    double kP = 0;
+    double kI = 10000;
+    double kD = theta * thetaPrev < 0 ? 5 : 10;
+    static double I = 0;
+    static double D = 0;
+    
+    I += theta * dt;
+    D = (theta - thetaPrev) / dt;
+    thetaPrev = theta;
+    
+    double v = kP * theta + kI * I + kD * D;
+
+    std::cout << theta << "\t" << I << "\t" << D << "\tout: " << v << std::endl;
+
+    body->setVelo(Vec2(-v, 0));
+}
+
+void invertedPendulumDisturbanceController (Body* body, const Application& app, View& view, double dt) {
+    double F = 10000;
+    if (app.isPressed(SDLK_LEFT)) {
+        body->applyForce(Vec2(-F, 0));
+    }
+    if (app.isPressed(SDLK_RIGHT)) {
+        body->applyForce(Vec2(F,0));
+    }
+}
+
 Environment invertedPendulum () {
     Environment env;
     auto cart = Body::makeRect(340, 100, 100, 30, 0);
-    auto pend = Body::makeRect(0, 0, 100, 100, 10);
+    pend = Body::makeRect(0, 0, 100, 100, 10);
     
     cart->setGravity(false);
-    cart->useController(cartController);
+    cart->useController(invertedPendulumController);
+    pend->useController(invertedPendulumDisturbanceController);
 
     pend->setOrient(3.14 / 4.0);
 
@@ -230,16 +185,13 @@ Environment invertedPendulum () {
 }
 
 void setEnvs () {
-    DefaultEnv = "rainyDay";
+    DefaultEnv = "invertedPendulum";
     EnvironmentLibrary = {
-        {"test1", test1()},
-        {"test2", test2()},
-        {"test3", test3()},
-        {"fallingDiamond", fallingDiamond()},
-        {"rainyDay", rainyDay()},
+        {"falling", falling()},
+        {"rain", rain()},
         {"stacking", stacking()},
+        {"physicalPendulum", physicalPendulum()},
         {"pendulum", pendulum()},
-        {"pointPendulum", pointPendulum()},
         {"invertedPendulum", invertedPendulum()}
     };
 }

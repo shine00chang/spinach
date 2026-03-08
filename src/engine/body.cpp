@@ -66,9 +66,9 @@ void Body::update(const double dt) {
 
 
 // Have controllers act on object. 
-void Body::runControllers(const Application &app, View& view) {
+void Body::runControllers(const Application &app, View& view, double dt) {
     for (auto c : m_controllers) 
-        c(this, app, view);
+        c(this, app, view, dt);
 }
 
 // Convenience Factory function

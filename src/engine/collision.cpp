@@ -20,7 +20,6 @@ struct Edge {
     Edge (const Vec2& v1, const Vec2& v2) : e((v1-v2).normalize()), n(Vec2(e.y, -e.x).normalize()), v1(v1), v2(v2) {};
 };
 
-
 // Boardphase
 Bodies& boardphase(Environment& env) {
     // TODO
@@ -40,7 +39,7 @@ Vec2 orthogonalTowards(const Vec2& _v1, const Vec2& _v2) {
 
     Vec3 o = v1 ^ v2 ^ v1;
     if (o.z != 0) {
-        std::cout << "Error :" << v1 << ", " << v2 << "\tout: " << o << std::endl;
+        std::cerr << "Error :" << v1 << ", " << v2 << "\tout: " << o << std::endl;
         assert(false);
     }
 
@@ -116,7 +115,7 @@ std::optional<Constraints> detectCollisionSAT(std::shared_ptr<Body> b1, std::sha
             // This should only happen when 1) the shape is concave or 2) the normal is not outwards.
             if (max1 - (edge.v1 * edge.n) > 0.01) {
                 // TODO: Add debug dump
-                std::cout << "furthest point on body1 along this normal is not one of the points on this edge." << std::endl;
+                std::cerr << "furthest point on body1 along this normal is not one of the points on this edge." << std::endl;
                 assert(false);
                 continue;
             }
@@ -124,7 +123,7 @@ std::optional<Constraints> detectCollisionSAT(std::shared_ptr<Body> b1, std::sha
             // If no overlap, there is no collision.
             if (max1 < min2 || max2 < min1) 
             {
-                std::cout << "exiting\n";
+                std::cerr << "exiting\n";
                 return false;
             }
             // Find minimum overlap write. store edge as contact edge.
@@ -153,9 +152,9 @@ std::optional<Constraints> detectCollisionSAT(std::shared_ptr<Body> b1, std::sha
 
     // TODO: Add debug dump
     if (overlap < 0) {
-        std::cout << "negative overlap.. weird: " << overlap << std::endl;   
+        std::cerr << "negative overlap.. weird: " << overlap << std::endl;   
     }
-    std::cout << "overlap: " << overlap << std::endl;
+    std::cerr << "overlap: " << overlap << std::endl;
 
     // Make constraint out of every contact
     Constraints constraints;
@@ -171,7 +170,7 @@ std::optional<Constraints> detectCollisionSAT(std::shared_ptr<Body> b1, std::sha
         injectDebugEffect(std::make_shared<PointEffect>(p_penetrating, Blue));
         injectDebugEffect(std::make_shared<VectorEffect>(p_edge, contact_edge.n * 30, Green));
     }
-    std::cout << "contacts found: " << contacts.size() << std::endl;
+    std::cerr << "contacts found: " << contacts.size() << std::endl;
 
     return std::make_optional(constraints);
 }

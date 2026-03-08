@@ -17,7 +17,7 @@ constexpr double k_launchForce = 1e6;
 
 std::shared_ptr<Body> bird;
 
-void envController (Environment* env, const Application& app, View& view) 
+void envController (Environment* env, const Application& app, View& view, double dt) 
 {
     // Cursor
     {

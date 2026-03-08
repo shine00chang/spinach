@@ -18,7 +18,7 @@ Application::Application () {
 		throw "SDL could not initialize!\nSDL_Error: {}\n"; // SDL_GetError();
 
     //Create window
-    m_window = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
+    m_window = SDL_CreateWindow( "spinach", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
     if( m_window == NULL ) 
 
         throw "Window could not be created! SDL_Error: %s\n"; // SDL_GetError();
@@ -106,12 +106,12 @@ void Application::loop (View view, Environment env)
         frame_number ++;
 
         // Movement
-        env.runControllers(*this, view);
+        env.runControllers(*this, view, dt);
 
         for (auto& body : env.getBodiesMut()) 
         {
             // Controllers
-            body->runControllers(*this, view);
+            body->runControllers(*this, view, dt);
 
             // Gravity
             if (body->getGravity())
