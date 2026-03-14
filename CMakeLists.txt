@@ -12,5 +12,6 @@ project(${PROJECT_NAME})
 
 add_subdirectory(src/engine)
 add_subdirectory(src/dev)
-add_subdirectory(src/angryBirds)
+add_subdirectory(src/pendulum)
+add_subdirectory(src/birds)
 

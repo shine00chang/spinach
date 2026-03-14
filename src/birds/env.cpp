@@ -1,19 +1,14 @@
 #include "app.h"
 #include "environment.h"
 #include "view.h"
-
-#include <memory>
-#include <ostream>
-
+#include <cmath>
 
 /* Gravity & Floor. 
  * Creates random falling block when space bar is pressed
  */
-bool launching = false;
-bool launched = false;
 constexpr double k_launchx = 50;
 constexpr double k_launchy = 200;
-constexpr double k_launchForce = 1e6;
+constexpr double k_launchForce = 500;
 
 std::shared_ptr<Body> bird;
 
@@ -21,34 +16,23 @@ void envController (Environment* env, const Application& app, View& view, double
 {
     // Cursor
     {
-        auto effect = std::make_shared<PointEffect>(Vec2(app.mouse().x, app.mouse().y), launching ? Red : Black);
+        auto effect = std::make_shared<PointEffect>(Vec2(app.mouse().x, app.mouse().y), Black);
         view.addEffect(effect);
     }
     // Launch Bird
     if (app.isPressed(SDLK_SPACE)) {
-        launching = !launching;
+        bird->setGravity(true);
+        bird->setVelo(Vec2(std::sqrt(3)/2.0, 0.5) * k_launchForce);
     }
     // Spawn in new block
     if (app.mouseClicked()) {
         
-        if (!launching) {
-            double x = app.mouse().x;
-            double y = app.mouse().y;
+        double x = app.mouse().x;
+        double y = app.mouse().y;
 
-            auto b = Body::makeRect(x, y, 50, 50, 10);
+        auto b = Body::makeRect(x, y, 50, 50, 10);
 
-            env->addBody(b);
-        }
-        else 
-        {
-            double r = M_PI + 
-                (k_launchx > app.mouse().x ? -M_PI : 0) +
-                std::atan((app.mouse().y - k_launchy) / (app.mouse().x - k_launchx));
-                    
-            Vec2 vec = Vec2(std::cos(r), std::sin(r));
-            bird->setGravity(true);
-            bird->applyForce( vec * k_launchForce);
-        }
+        env->addBody(b);
     }
 }
 
